@@ -7,11 +7,11 @@ This script generates maps to analyze the potential walking routes for students 
 
 ## Example figures
 This script will generate a few figures:
-A heatmap of student addresses:
+###A heatmap of student addresses:
 ![example address figure](examples/example-addresses.png)
 
-A map of all the walking routes within the walk boundary:
+###A map of all the walking routes within the walk boundary:
 ![example routes figure](examples/example-routes.png)
 
-A map of those routes colored by the level of traffic stress to bike
+###A map of those routes colored by the level of traffic stress to bike
 ![example routes-lts figure](examples/example-routes-lts.png)
