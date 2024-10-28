@@ -1,0 +1,8 @@
+.Rproj*
+
+data/addresses/*
+api_keys/*
+figures/*
+
+.Rhistory
+.Rproj.user

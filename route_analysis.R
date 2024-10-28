@@ -1,0 +1,219 @@
+library(tidyverse)
+library(ggmap)
+library(sf)
+library(osrm)
+library(smoothr)
+library(magick)
+library(ggnewscale)
+
+
+## school focus
+school_focus <- data.frame(name = c("East High School"), NCES_CODE = c("550852000925"))
+
+## walk boundary
+walk_boundary_m <- 1.5 * 1609
+
+## load school locations
+WI_schools <- st_read(dsn = "data/Schools/WI_schools.gpkg")
+
+## load addresses
+addresses <- read_csv(file="data/addresses/Addresses_Students_EastHS_2024_GeocodeResults.csv") %>% 
+  filter(lat > 0) %>%
+  st_as_sf(coords=c("lon","lat"), crs=4326) # remember x=lon and y=lat
+
+## set osrm options
+options(osrm.server = "http://127.0.0.1:5000/")
+options(osrm.profile = "walk")
+
+register_stadiamaps(key = substr(read_file(file = "api_keys/stadia_api_key"), 1, 36))
+
+## subset addresses within 1.5 miles
+walk_boundary_poly <- fill_holes(st_make_valid(osrmIsodistance(
+  loc = st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326),
+  breaks = c(walk_boundary_m),
+  res = 80)
+), units::set_units(1, km^2))
+
+addresses_near <- st_intersection(addresses, walk_boundary_poly)
+
+## load bike tls
+bike_lts <- st_read("data/bike_lts/bike_lts_DANE.geojson")
+bike_lts[["lts"]] <- as.factor(bike_lts$LTS_F)
+
+bike_lts_scale <- data.frame(code = c(1, 2, 3, 4, 9),
+                             color = c("#1a9641",
+                                       "#a6d96a",
+                                       "#fdae61",
+                                       "#d7191c",
+                                       "#d7191c"))
+
+## calculate routes
+routes <- list(NULL)
+for(i in addresses_near$number) {
+ routes[[i]] <- osrmRoute(
+      src = addresses_near %>% filter(number == i),
+      dst = WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE))
+  message(paste0("done - ", i, "of", max(addresses_near$number)))
+}
+routes <- bind_rows(routes)
+
+## combine routes
+bike_lts_buffer <- st_buffer(st_intersection(bike_lts, walk_boundary_poly), 10)
+
+bike_lts_buffer["student_use"] <- unlist(lapply(st_intersects(bike_lts_buffer, routes), length))
+
+bike_lts <- st_join(bike_lts, bike_lts_buffer %>% select(OBJECTID, student_use))
+
+## make maps
+# load logo
+logo <- image_read(path = "other/BFW_Logo_180_x_200_transparent_background.png")
+school_symbol <- image_read_svg(path = "other/school_FILL0_wght400_GRAD0_opsz24.svg")
+
+
+bbox <- st_bbox(st_transform(st_buffer(addresses_near, dist = 500), crs = 4326))
+bbox <- c(left = as.double(bbox[1]), 
+          bottom = as.double(bbox[2]), 
+          right = as.double(bbox[3]), 
+          top = as.double(bbox[4]))
+
+#get basemap
+basemap <- get_stadiamap(bbox = bbox, zoom = 15, maptype = "stamen_toner_lite")
+
+# generate map
+ggmap(basemap) +
+  labs(title = paste0("Walking routes for students at ",
+    school_focus %>% pull(name)),
+    subtitle = "only showing routes within the 1.5 walk boundary",
+    x = NULL,
+    y = NULL,
+    color = NULL,
+    linewidth = "How many students can use road") +
+  theme(axis.text=element_blank(),
+        axis.ticks=element_blank(),
+        plot.caption = element_text(color = "grey")) +
+  geom_sf(data = walk_boundary_poly,
+          inherit.aes = FALSE,
+          aes(color = paste0(1.5, " mile walking boundary")),
+          fill = NA,
+          linewidth = 1) +
+  scale_color_manual(values = "blue", name = NULL) +
+  new_scale_color() +
+  geom_sf(data = bike_lts %>% filter(!is.na(student_use), student_use > 3),
+          inherit.aes = FALSE,
+          aes(linewidth = student_use),
+          color = "mediumvioletred",
+          fill = NA) +
+  scale_linewidth_continuous(range = c(0, 3)) +
+  annotation_raster(school_symbol,
+                    # Position adjustments here using plot_box$max/min/range
+                    ymin = as.double((st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326) %>% pull(geom))[[1]])[2] - 0.001,
+                    ymax = as.double((st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326) %>% pull(geom))[[1]])[2] + 0.001,
+                    xmin = as.double((st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326) %>% pull(geom))[[1]])[1] - 0.0015,
+                    xmax = as.double((st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326) %>% pull(geom))[[1]])[1] + 0.0015) +
+  geom_sf_label(data = st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326),
+                inherit.aes = FALSE,
+                mapping = aes(label = school_focus %>% pull(name)),
+                nudge_y = 0.0015,
+                label.size = 0.04,
+                size = 2)
+
+ggsave(file = paste0("figures/",
+                     school_focus %>% pull(name), 
+                     " Routes.pdf"),
+       title = paste0(school_focus %>% pull(name), " Walking Routes"),
+       device = pdf,
+       height = 8.5,
+       width = 11,
+       units = "in",
+       create.dir = TRUE)
+
+# generate map
+ggmap(basemap) +
+  labs(title = paste0("Walking routes for students at ",
+                      school_focus %>% pull(name)),
+       subtitle = "only showing routes within the 1.5 walk boundary",
+       x = NULL,
+       y = NULL,
+       color = NULL,
+       linewidth = "How many students can use road") +
+  theme(axis.text=element_blank(),
+        axis.ticks=element_blank(),
+        plot.caption = element_text(color = "grey")) +
+  geom_sf(data = walk_boundary_poly,
+          inherit.aes = FALSE,
+          aes(color = paste0(1.5, " mile walking boundary")),
+          fill = NA,
+          linewidth = 1) +
+  scale_color_manual(values = "blue", name = NULL) +
+  new_scale_color() +
+  geom_sf(data = bike_lts %>% filter(!is.na(student_use), student_use > 0),
+         inherit.aes = FALSE,
+         aes(color = lts,
+             linewidth = student_use)) +
+  scale_color_manual(values = bike_lts_scale$color, name = "Bike Level of Traffic Stress") +
+  scale_linewidth_continuous(range = c(0, 3)) +
+  annotation_raster(school_symbol,
+                    # Position adjustments here using plot_box$max/min/range
+                    ymin = as.double((st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326) %>% pull(geom))[[1]])[2] - 0.001,
+                    ymax = as.double((st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326) %>% pull(geom))[[1]])[2] + 0.001,
+                    xmin = as.double((st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326) %>% pull(geom))[[1]])[1] - 0.0015,
+                    xmax = as.double((st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326) %>% pull(geom))[[1]])[1] + 0.0015) +
+  geom_sf_label(data = st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326),
+                inherit.aes = FALSE,
+                mapping = aes(label = school_focus %>% pull(name)),
+                nudge_y = 0.0015,
+                label.size = 0.04,
+                size = 2)
+ggsave(file = paste0("figures/",
+                     school_focus %>% pull(name), 
+                     " Routes - Traffic Stress.pdf"),
+       title = paste0(school_focus %>% pull(name), " Walking Routes - Traffic Stress"),
+       device = pdf,
+       height = 8.5,
+       width = 11,
+       units = "in",
+       create.dir = TRUE)
+
+ggmap(basemap) +
+  labs(title = paste0("Student homes at ",
+                      school_focus %>% pull(name)),
+       x = NULL,
+       y = NULL,
+       color = NULL,
+       fill = "How many students live there") +
+  theme(axis.text=element_blank(),
+        axis.ticks=element_blank(),
+        plot.caption = element_text(color = "grey")) +
+  geom_hex(data = addresses %>% extract(geometry, into = c('Lat', 'Lon'), '\\((.*),(.*)\\)', conv = T),
+           aes(x = Lat,
+               y = Lon),
+           alpha = 0.7) +
+  scale_fill_distiller(palette = "YlOrRd", direction = "reverse") +
+  geom_sf(data = walk_boundary_poly,
+          inherit.aes = FALSE,
+          aes(color = paste0(1.5, " mile walking boundary")),
+          fill = NA,
+          linewidth = 1) +
+  scale_color_manual(values = "blue", name = NULL) +
+  new_scale_color() +
+  annotation_raster(school_symbol,
+                    # Position adjustments here using plot_box$max/min/range
+                    ymin = as.double((st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326) %>% pull(geom))[[1]])[2] - 0.001,
+                    ymax = as.double((st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326) %>% pull(geom))[[1]])[2] + 0.001,
+                    xmin = as.double((st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326) %>% pull(geom))[[1]])[1] - 0.0015,
+                    xmax = as.double((st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326) %>% pull(geom))[[1]])[1] + 0.0015) +
+  geom_sf_label(data = st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326),
+                inherit.aes = FALSE,
+                mapping = aes(label = school_focus %>% pull(name)),
+                nudge_y = 0.0015,
+                label.size = 0.04,
+                size = 2)
+ggsave(file = paste0("figures/",
+                     school_focus %>% pull(name), 
+                     " Addresses.pdf"),
+       title = paste0(school_focus %>% pull(name), " Addresses"),
+       device = pdf,
+       height = 8.5,
+       width = 11,
+       units = "in",
+       create.dir = TRUE)

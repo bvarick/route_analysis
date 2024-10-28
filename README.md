@@ -1,0 +1,17 @@
+## Routes for walking to school
+This script generates maps to analyze the potential walking routes for students to their school.
+
+- I excluded the addresses of the students from the repository.
+- The actual route generation is done with OSRM, I run it locally in a docker container.
+- The basemap is pulled from Stadia Maps. The usage of the script is well within the free tier, you'll need an API key from them.
+
+## Example figures
+This script will generate a few figures:
+A heatmap of student addresses:
+![example address figure](example-addresses.png)
+
+A map of all the walking routes within the walk boundary:
+![example routes figure](example-routes.png)
+
+A map of those routes colored by the level of traffic stress to bike
+![example routes-lts figure](example-routes-lts.png)
