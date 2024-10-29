@@ -77,7 +77,7 @@ for(i in addresses_near$number) {
 routes <- bind_rows(routes)
 
 ## combine routes
-bike_lts_buffer <- st_buffer(st_intersection(bike_lts, walk_boundary_poly), 10)
+bike_lts_buffer <- st_buffer(st_intersection(bike_lts, walk_boundary_poly), 20)
 
 bike_lts_buffer["student_use"] <- unlist(lapply(st_intersects(bike_lts_buffer, routes), length))
 
@@ -106,7 +106,7 @@ ggmap(basemap) +
     x = NULL,
     y = NULL,
     color = NULL,
-    linewidth = "How many students would use road") +
+    linewidth = "Potential student walkers") +
   theme(axis.text=element_blank(),
         axis.ticks=element_blank(),
         plot.caption = element_text(color = "grey")) +
@@ -154,7 +154,7 @@ ggmap(basemap) +
        x = NULL,
        y = NULL,
        color = NULL,
-       linewidth = "How many students would use road") +
+       linewidth = "Potential student walkers") +
   theme(axis.text=element_blank(),
         axis.ticks=element_blank(),
         plot.caption = element_text(color = "grey")) +
