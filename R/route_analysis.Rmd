@@ -1,3 +1,17 @@
+---
+title: "Route Analysis"
+output:
+  html_document:
+    toc: true
+    toc_depth: 5
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+---
+
+```{r libs, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+date()
+rm(list=ls())
 library(tidyverse)
 library(ggmap)
 library(sf)
@@ -5,8 +19,13 @@ library(osrm)
 library(smoothr)
 library(magick)
 library(ggnewscale)
+fig.height <- 6
+set.seed(1)
+```
 
+# Main R script
 
+```{r Rscript, eval = FALSE, echo = TRUE, results = "show", warning = FALSE, error = FALSE, message = FALSE}
 ## school focus
 school_focus <- data.frame(name = c("East High School"), NCES_CODE = c("550852000925"))
 
@@ -17,7 +36,7 @@ walk_boundary_m <- 1.5 * 1609
 WI_schools <- st_read(dsn = "data/Schools/WI_schools.gpkg")
 
 ## load addresses
-addresses <- read_csv(file="data/addresses/Addresses_Students_EastHS_2024_GeocodeResults.csv") %>% 
+addresses <- read_csv(file="data/addresses/Addresses_Students_EastHS_2024_GeocodeResults.csv") %>%
   filter(lat > 0) %>%
   st_as_sf(coords=c("lon","lat"), crs=4326) # remember x=lon and y=lat
 
@@ -71,9 +90,9 @@ school_symbol <- image_read_svg(path = "other/school_FILL0_wght400_GRAD0_opsz24.
 
 
 bbox <- st_bbox(st_transform(st_buffer(addresses_near, dist = 500), crs = 4326))
-bbox <- c(left = as.double(bbox[1]), 
-          bottom = as.double(bbox[2]), 
-          right = as.double(bbox[3]), 
+bbox <- c(left = as.double(bbox[1]),
+          bottom = as.double(bbox[2]),
+          right = as.double(bbox[3]),
           top = as.double(bbox[4]))
 
 #get basemap
@@ -118,7 +137,7 @@ ggmap(basemap) +
                 size = 2)
 
 ggsave(file = paste0("figures/",
-                     school_focus %>% pull(name), 
+                     school_focus %>% pull(name),
                      " Routes.pdf"),
        title = paste0(school_focus %>% pull(name), " Walking Routes"),
        device = pdf,
@@ -165,7 +184,7 @@ ggmap(basemap) +
                 label.size = 0.04,
                 size = 2)
 ggsave(file = paste0("figures/",
-                     school_focus %>% pull(name), 
+                     school_focus %>% pull(name),
                      " Routes - Traffic Stress.pdf"),
        title = paste0(school_focus %>% pull(name), " Walking Routes - Traffic Stress"),
        device = pdf,
@@ -209,7 +228,7 @@ ggmap(basemap) +
                 label.size = 0.04,
                 size = 2)
 ggsave(file = paste0("figures/",
-                     school_focus %>% pull(name), 
+                     school_focus %>% pull(name),
                      " Addresses.pdf"),
        title = paste0(school_focus %>% pull(name), " Addresses"),
        device = pdf,
@@ -217,3 +236,13 @@ ggsave(file = paste0("figures/",
        width = 11,
        units = "in",
        create.dir = TRUE)
+
+
+```
+
+# Appendix
+
+```{r chunklast, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+date()
+sessionInfo()
+```
