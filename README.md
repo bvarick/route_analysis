@@ -15,3 +15,7 @@ This script will generate a few figures:
 
 ### A map of those routes colored by the level of traffic stress to bike
 ![example routes-lts figure](examples/example-routes-lts.png)
+
+## Using make
+The command `make route_analysis` will run *route_analysis.Rmd* which
+is an R markdown file containing the original R script *route_analysis.R*
