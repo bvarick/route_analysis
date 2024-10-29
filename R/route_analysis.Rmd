@@ -106,7 +106,7 @@ ggmap(basemap) +
     x = NULL,
     y = NULL,
     color = NULL,
-    linewidth = "How many students can use road") +
+    linewidth = "How many students would use road") +
   theme(axis.text=element_blank(),
         axis.ticks=element_blank(),
         plot.caption = element_text(color = "grey")) +
@@ -154,7 +154,7 @@ ggmap(basemap) +
        x = NULL,
        y = NULL,
        color = NULL,
-       linewidth = "How many students can use road") +
+       linewidth = "How many students would use road") +
   theme(axis.text=element_blank(),
         axis.ticks=element_blank(),
         plot.caption = element_text(color = "grey")) +
