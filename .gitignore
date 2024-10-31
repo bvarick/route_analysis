@@ -1,5 +1,5 @@
 *.Rproj
-data/addresses/*
+data/*
 api_keys/*
 figures/*
 .Rhistory
