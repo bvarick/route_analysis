@@ -62,8 +62,12 @@ addresses_near <- st_intersection(addresses, walk_boundary_poly)
 
 ## load bike tls
 bike_lts <- st_read("data/bike_lts/bike_lts_DANE.geojson")
+# make lts attribute a factor
 bike_lts[["lts"]] <- as.factor(bike_lts$LTS_F)
+# remove segments with an LTS value of 9
+bike_lts <- bike_lts %>% filter(lts != 9)
 
+# set color scale
 bike_lts_scale <- data.frame(code = c(1, 2, 3, 4, 9),
                              color = c("#1a9641",
                                        "#a6d96a",
