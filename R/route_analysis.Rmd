@@ -33,7 +33,8 @@ school_focus <- data.frame(name = c("East High School"), NCES_CODE = c("55085200
 walk_boundary_m <- 1.5 * 1609
 
 ## load school locations
-WI_schools <- st_read(dsn = "../data/Schools/WI_schools.gpkg")
+WI_schools <- st_transform(st_read(dsn = "../data/Schools/Wisconsin_Public_Schools_-5986231931870160084.gpkg"), crs = 4326)
+WI_schools <- WI_schools %>% mutate(geom = SHAPE)
 
 ## load addresses
 addresses <- read_csv(file="../data/addresses/Addresses_Students_EastHS_2024_GeocodeResults.csv") %>%
@@ -77,6 +78,8 @@ for(i in addresses_near$number) {
 routes <- bind_rows(routes)
 
 ## combine routes
+# Count the routes that intersect or overlap with each segment of the bike_tls network.
+# The intersections have a buffer of 20m
 bike_lts_buffer <- st_buffer(st_intersection(bike_lts, walk_boundary_poly), 20)
 
 bike_lts_buffer["student_use"] <- unlist(lapply(st_intersects(bike_lts_buffer, routes), length))
@@ -89,7 +92,7 @@ logo <- image_read(path = "../other/BFW_Logo_180_x_200_transparent_background.pn
 school_symbol <- image_read_svg(path = "../other/school_FILL0_wght400_GRAD0_opsz24.svg")
 
 
-bbox <- st_bbox(st_transform(st_buffer(addresses_near, dist = 500), crs = 4326))
+bbox <- st_bbox(st_transform(st_buffer(walk_boundary_poly, dist = 500), crs = 4326))
 bbox <- c(left = as.double(bbox[1]),
           bottom = as.double(bbox[2]),
           right = as.double(bbox[3]),
