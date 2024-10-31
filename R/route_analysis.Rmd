@@ -1,5 +1,5 @@
 ---
-title: "Route Analysis"
+title: "East High Active Travel"
 output:
   html_document:
     toc: true
@@ -8,6 +8,10 @@ output:
       collapsed: false
       smooth_scroll: true
 ---
+
+# Input Data & Configuration
+
+## Libraries
 
 ```{r libs, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 date()
@@ -24,32 +28,42 @@ fig.height <- 6
 set.seed(1)
 ```
 
-# Main R script
+## GeoPackage Data
 
-```{r Rscript, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
-## school focus
-school_focus <- data.frame(name = c("East High School"), NCES_CODE = c("550852000925"))
-
-## walk boundary
-walk_boundary_m <- 1.5 * 1609
-
-## load school locations
-
+```{r gpkg, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 WI_schools <- st_transform(st_read(dsn = "data/Schools/Wisconsin_Public_Schools_-5986231931870160084.gpkg"), crs = 4326)
 WI_schools <- WI_schools %>% mutate(geom = SHAPE)
+```
 
-## load addresses
+## Addresses Data
+
+```{r addresses, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 addresses <- read_csv(file="data/addresses/Addresses_Students_EastHS_2024_GeocodeResults.csv") %>%
   filter(lat > 0) %>%
   st_as_sf(coords=c("lon","lat"), crs=4326) # remember x=lon and y=lat
+```
 
-## set osrm options
+## Open Source Routing Machine (OSRM)
+
+```{r osrm, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 options(osrm.server = "http://127.0.0.1:5000/")
 options(osrm.profile = "walk")
+```
 
+## Stadia Maps API Key
+
+```{r stadiamaps, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 register_stadiamaps(key = substr(read_file(file = "api_keys/stadia_api_key"), 1, 36))
+```
 
-## subset addresses within 1.5 miles
+# Analysis
+
+## Subset Addresses Within 1.5 Miles
+
+```{r walkBoundary, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+walk_boundary_m <- 1.5 * 1609 ## walk boundary
+school_focus <- data.frame(name = c("East High School"), NCES_CODE = c("550852000925")) ## school focus
+
 walk_boundary_poly <- fill_holes(st_make_valid(osrmIsodistance(
   loc = st_transform(WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE), crs = 4326),
   breaks = c(walk_boundary_m),
@@ -57,8 +71,11 @@ walk_boundary_poly <- fill_holes(st_make_valid(osrmIsodistance(
 ), units::set_units(1, km^2))
 
 addresses_near <- st_intersection(addresses, walk_boundary_poly)
+```
 
-## load bike tls
+## Bike Level of Traffic Stress (LTS)
+
+```{r bikelts, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 bike_lts <- st_read("data/bike_lts/bike_lts_DANE.geojson")
 bike_lts[["lts"]] <- as.factor(bike_lts$LTS_F)
 
@@ -68,6 +85,11 @@ bike_lts_scale <- data.frame(code = c(1, 2, 3, 4, 9),
                                        "#fdae61",
                                        "#d7191c",
                                        "#d7191c"))
+```
+
+## The Rest
+
+```{r therest, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 
 ## calculate routes
 routes <- list(NULL)
