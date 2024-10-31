@@ -6,9 +6,9 @@ This script generates maps to analyze the potential walking routes for students 
 - The basemap is pulled from Stadia Maps. The usage of the script is well within the free tier, you'll need an API key from them.
 
 ## Data sources
-School location data is from: https://data-wi-dpi.opendata.arcgis.com/
-Madison Bike Level of Traffic Stress is from: https://data-cityofmadison.opendata.arcgis.com/datasets/cityofmadison::bike-lts/explore
-Student addresses provided by school.
+- School location data is from: https://data-wi-dpi.opendata.arcgis.com/
+- Madison Bike Level of Traffic Stress is from: https://data-cityofmadison.opendata.arcgis.com/datasets/cityofmadison::bike-lts/explore
+- Student addresses provided by school.
 
 ## Example figures
 This script will generate a few figures:
