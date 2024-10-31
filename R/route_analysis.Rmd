@@ -19,6 +19,7 @@ library(osrm)
 library(smoothr)
 library(magick)
 library(ggnewscale)
+library(rsvg)
 fig.height <- 6
 set.seed(1)
 ```
@@ -33,11 +34,12 @@ school_focus <- data.frame(name = c("East High School"), NCES_CODE = c("55085200
 walk_boundary_m <- 1.5 * 1609
 
 ## load school locations
-WI_schools <- st_transform(st_read(dsn = "../data/Schools/Wisconsin_Public_Schools_-5986231931870160084.gpkg"), crs = 4326)
+
+WI_schools <- st_transform(st_read(dsn = "./data/Schools/Wisconsin_Public_Schools_-5986231931870160084.gpkg"), crs = 4326)
 WI_schools <- WI_schools %>% mutate(geom = SHAPE)
 
 ## load addresses
-addresses <- read_csv(file="../data/addresses/Addresses_Students_EastHS_2024_GeocodeResults.csv") %>%
+addresses <- read_csv(file="./data/addresses/Addresses_Students_EastHS_2024_GeocodeResults.csv") %>%
   filter(lat > 0) %>%
   st_as_sf(coords=c("lon","lat"), crs=4326) # remember x=lon and y=lat
 
@@ -45,7 +47,7 @@ addresses <- read_csv(file="../data/addresses/Addresses_Students_EastHS_2024_Geo
 options(osrm.server = "http://127.0.0.1:5000/")
 options(osrm.profile = "walk")
 
-register_stadiamaps(key = substr(read_file(file = "../api_keys/stadia_api_key"), 1, 36))
+register_stadiamaps(key = substr(read_file(file = "./api_keys/stadia_api_key"), 1, 36))
 
 ## subset addresses within 1.5 miles
 walk_boundary_poly <- fill_holes(st_make_valid(osrmIsodistance(
@@ -57,7 +59,7 @@ walk_boundary_poly <- fill_holes(st_make_valid(osrmIsodistance(
 addresses_near <- st_intersection(addresses, walk_boundary_poly)
 
 ## load bike tls
-bike_lts <- st_read("../data/bike_lts/bike_lts_DANE.geojson")
+bike_lts <- st_read("./data/bike_lts/bike_lts_DANE.geojson")
 bike_lts[["lts"]] <- as.factor(bike_lts$LTS_F)
 
 bike_lts_scale <- data.frame(code = c(1, 2, 3, 4, 9),
@@ -88,8 +90,8 @@ bike_lts <- st_join(bike_lts, bike_lts_buffer %>% select(OBJECTID, student_use))
 
 ## make maps
 # load logo
-logo <- image_read(path = "../other/BFW_Logo_180_x_200_transparent_background.png")
-school_symbol <- image_read_svg(path = "../other/school_FILL0_wght400_GRAD0_opsz24.svg")
+logo <- image_read(path = "./other/BFW_Logo_180_x_200_transparent_background.png")
+school_symbol <- image_read_svg(path = "./other/school_FILL0_wght400_GRAD0_opsz24.svg")
 
 
 bbox <- st_bbox(st_transform(st_buffer(walk_boundary_poly, dist = 500), crs = 4326))
@@ -139,7 +141,7 @@ ggmap(basemap) +
                 label.size = 0.04,
                 size = 2)
 
-ggsave(file = paste0("../figures/",
+ggsave(file = paste0("./figures/",
                      school_focus %>% pull(name),
                      " Routes.pdf"),
        title = paste0(school_focus %>% pull(name), " Walking Routes"),
@@ -186,7 +188,7 @@ ggmap(basemap) +
                 nudge_y = 0.0015,
                 label.size = 0.04,
                 size = 2)
-ggsave(file = paste0("../figures/",
+ggsave(file = paste0("./figures/",
                      school_focus %>% pull(name),
                      " Routes - Traffic Stress.pdf"),
        title = paste0(school_focus %>% pull(name), " Walking Routes - Traffic Stress"),
@@ -230,7 +232,7 @@ ggmap(basemap) +
                 nudge_y = 0.0015,
                 label.size = 0.04,
                 size = 2)
-ggsave(file = paste0("../figures/",
+ggsave(file = paste0("./figures/",
                      school_focus %>% pull(name),
                      " Addresses.pdf"),
        title = paste0(school_focus %>% pull(name), " Addresses"),
