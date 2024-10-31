@@ -34,10 +34,10 @@ school_focus <- data.frame(name = c("East High School"), NCES_CODE = c("55085200
 walk_boundary_m <- 1.5 * 1609
 
 ## load school locations
-WI_schools <- st_read(dsn = "/Users/syounkin/Box Sync/HOT/bvarick/data/Schools/WI_schools.gpkg")
+WI_schools <- st_read(dsn = "./../data/Schools/WI_schools.gpkg")
 
 ## load addresses
-addresses <- read_csv(file="/Users/syounkin/Box Sync/HOT/bvarick/data/addresses/Addresses_Students_EastHS_2024_GeocodeResults.csv") %>%
+addresses <- read_csv(file="./../data/addresses/Addresses_Students_EastHS_2024_GeocodeResults.csv") %>%
   filter(lat > 0) %>%
   st_as_sf(coords=c("lon","lat"), crs=4326) # remember x=lon and y=lat
 
@@ -57,7 +57,7 @@ walk_boundary_poly <- fill_holes(st_make_valid(osrmIsodistance(
 addresses_near <- st_intersection(addresses, walk_boundary_poly)
 
 ## load bike tls
-bike_lts <- st_read("/Users/syounkin/Box Sync/HOT/bvarick/data/bike_lts/bike_lts_DANE.geojson")
+bike_lts <- st_read("./../data/bike_lts/bike_lts_DANE.geojson")
 bike_lts[["lts"]] <- as.factor(bike_lts$LTS_F)
 
 bike_lts_scale <- data.frame(code = c(1, 2, 3, 4, 9),
