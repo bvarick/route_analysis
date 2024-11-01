@@ -112,25 +112,6 @@ for(i in addresses_near$number) {
 routes <- bind_rows(routes)
 ```
 
-## Bike Level of Traffic Stress (LTS)
-
-```{r bikelts, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
-bike_lts <- st_read("data/bike_lts/bike_lts_DANE.geojson")
-# make lts attribute a factor
-bike_lts[["lts"]] <- as.factor(bike_lts$LTS_F)
-# remove segments with an LTS value of 9
-bike_lts <- bike_lts %>% filter(lts != 9)
-
-# set color scale
-bike_lts_scale <- data.frame(code = c(1, 2, 3, 4, 9),
-                             color = c("#1a9641",
-                                       "#a6d96a",
-                                       "#fdae61",
-                                       "#d7191c",
-                                       "#d7191c"))
-routes <- bind_rows(routes)
-```
-
 
 ## Combine routes with Bike LTS
 ```{r routeslts, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
