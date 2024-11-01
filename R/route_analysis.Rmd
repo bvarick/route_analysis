@@ -30,14 +30,13 @@ fig.height <- 6
 set.seed(1)
 ```
 
-## GeoPackage Data
+## School Location Data
 
 ```{r gpkg, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 WI_schools <- st_transform(st_read(dsn = "data/Schools/Wisconsin_Public_Schools_-5986231931870160084.gpkg"), crs = 4326)
-# WI_schools <- WI_schools %>% mutate(geom = SHAPE)
-names(WI_schools)
+WI_schools <- WI_schools %>% mutate(geom = SHAPE)
+# names(WI_schools)
 ```
-There was an error here. _SHAPE_ does not exist in the _WI\_schools_ object. The variable _geom_ is already in _WI\_schools_.
 
 ## Addresses Data
 
@@ -47,6 +46,26 @@ addresses <- read_csv(file="data/addresses/Addresses_Students_EastHS_2024_Geocod
   st_as_sf(coords=c("lon","lat"), crs=4326)
 ```
 (Remember that x = lon and y = lat.)
+
+## Bike Level of Traffic Stress (LTS)
+
+```{r bikelts, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+bike_lts <- st_read("data/bike_lts/bike_lts_DANE.geojson")
+# make lts attribute a factor
+bike_lts[["lts"]] <- as.factor(bike_lts$LTS_F)
+# remove segments with an LTS value of 9
+bike_lts <- bike_lts %>% filter(lts != 9)
+
+# set color scale
+bike_lts_scale <- data.frame(code = c(1, 2, 3, 4, 9),
+                             color = c("#1a9641",
+                                       "#a6d96a",
+                                       "#fdae61",
+                                       "#d7191c",
+                                       "#d7191c"))
+```
+
+# External sources configurations
 
 ## Open Source Routing Machine (OSRM)
 
@@ -89,6 +108,7 @@ for(i in addresses_near$number) {
   message(paste0("done - ", i, "of", max(addresses_near$number)))
 }
 
+
 routes <- bind_rows(routes)
 ```
 
@@ -108,8 +128,13 @@ bike_lts_scale <- data.frame(code = c(1, 2, 3, 4, 9),
                                        "#fdae61",
                                        "#d7191c",
                                        "#d7191c"))
+routes <- bind_rows(routes)
+```
 
-## combine routes
+
+## Combine routes with Bike LTS
+```{r routeslts, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+
 # Count the routes that intersect or overlap with each segment of the bike_tls network.
 # The intersections have a buffer of 20m
 bike_lts_buffer <- st_buffer(st_intersection(bike_lts, walk_boundary_poly), 20)
@@ -121,13 +146,16 @@ bike_lts <- st_join(bike_lts, bike_lts_buffer %>% select(OBJECTID, student_use))
 
 # Make Maps
 
-```{r maps, eval = TRUE, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 
-## make maps
+## Load school and Bike Fed logo
+```{r logos, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 # load logo
 logo <- image_read(path = "other/BFW_Logo_180_x_200_transparent_background.png")
 school_symbol <- image_read_svg(path = "other/school_FILL0_wght400_GRAD0_opsz24.svg")
+```
 
+## Set boundaries and get basemap
+```{r basemap, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 
 bbox <- st_bbox(st_buffer(walk_boundary_poly, dist = 500))
 bbox <- c(left = as.double(bbox[1]),
@@ -137,7 +165,58 @@ bbox <- c(left = as.double(bbox[1]),
 
 #get basemap
 basemap <- get_stadiamap(bbox = bbox, zoom = 15, maptype = "stamen_toner_lite")
+```
 
+## Generate map of addresses
+```{r mapaddresses, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+
+ggmap(basemap) +
+  labs(title = paste0("Student homes at ",
+                      school_focus %>% pull(name)),
+       x = NULL,
+       y = NULL,
+       color = NULL,
+       fill = "How many students live there") +
+  theme(axis.text=element_blank(),
+        axis.ticks=element_blank(),
+        plot.caption = element_text(color = "grey")) +
+  geom_hex(data = addresses %>% extract(geometry, into = c('Lat', 'Lon'), '\\((.*),(.*)\\)', conv = T),
+           aes(x = Lat,
+               y = Lon),
+           alpha = 0.7) +
+  scale_fill_distiller(palette = "YlOrRd", direction = "reverse") +
+  geom_sf(data = walk_boundary_poly,
+          inherit.aes = FALSE,
+          aes(color = paste0(1.5, " mile walking boundary")),
+          fill = NA,
+          linewidth = 1) +
+  scale_color_manual(values = "blue", name = NULL) +
+  new_scale_color() +
+  annotation_raster(school_symbol,
+                    # Position adjustments here using plot_box$max/min/range
+                    ymin = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[2] - 0.001,
+                    ymax = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[2] + 0.001,
+                    xmin = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[1] - 0.0015,
+                    xmax = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[1] + 0.0015) +
+  geom_sf_label(data = WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE),
+                inherit.aes = FALSE,
+                mapping = aes(label = school_focus %>% pull(name)),
+                nudge_y = 0.0015,
+                label.size = 0.04,
+                size = 2)
+ggsave(file = paste0("figures/",
+                     school_focus %>% pull(name),
+                     " Addresses.pdf"),
+       title = paste0(school_focus %>% pull(name), " Addresses"),
+       device = pdf,
+       height = 8.5,
+       width = 11,
+       units = "in",
+       create.dir = TRUE)
+```
+
+## Generate map of routes
+```{r maproutes, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 # generate map
 ggmap(basemap) +
   labs(title = paste0("Walking routes for students at ",
@@ -185,7 +264,10 @@ ggsave(file = paste0("figures/",
        width = 11,
        units = "in",
        create.dir = TRUE)
+```
 
+## Generate map of routes with LTS
+```{r maprouteslts, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 # generate map
 ggmap(basemap) +
   labs(title = paste0("Walking routes for students at ",
@@ -223,6 +305,7 @@ ggmap(basemap) +
                 nudge_y = 0.0015,
                 label.size = 0.04,
                 size = 2)
+
 ggsave(file = paste0("figures/",
                      school_focus %>% pull(name),
                      " Routes - Traffic Stress.pdf"),
@@ -233,50 +316,6 @@ ggsave(file = paste0("figures/",
        units = "in",
        create.dir = TRUE)
 
-ggmap(basemap) +
-  labs(title = paste0("Student homes at ",
-                      school_focus %>% pull(name)),
-       x = NULL,
-       y = NULL,
-       color = NULL,
-       fill = "How many students live there") +
-  theme(axis.text=element_blank(),
-        axis.ticks=element_blank(),
-        plot.caption = element_text(color = "grey")) +
-  geom_hex(data = addresses %>% extract(geometry, into = c('Lat', 'Lon'), '\\((.*),(.*)\\)', conv = T),
-           aes(x = Lat,
-               y = Lon),
-           alpha = 0.7) +
-  scale_fill_distiller(palette = "YlOrRd", direction = "reverse") +
-  geom_sf(data = walk_boundary_poly,
-          inherit.aes = FALSE,
-          aes(color = paste0(1.5, " mile walking boundary")),
-          fill = NA,
-          linewidth = 1) +
-  scale_color_manual(values = "blue", name = NULL) +
-  new_scale_color() +
-  annotation_raster(school_symbol,
-                    # Position adjustments here using plot_box$max/min/range
-                    ymin = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[2] - 0.001,
-                    ymax = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[2] + 0.001,
-                    xmin = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[1] - 0.0015,
-                    xmax = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[1] + 0.0015) +
-  geom_sf_label(data = WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE),
-                inherit.aes = FALSE,
-                mapping = aes(label = school_focus %>% pull(name)),
-                nudge_y = 0.0015,
-                label.size = 0.04,
-                size = 2)
-
-ggsave(file = paste0("figures/",
-                     school_focus %>% pull(name),
-                     " Addresses.pdf"),
-       title = paste0(school_focus %>% pull(name), " Addresses"),
-       device = pdf,
-       height = 8.5,
-       width = 11,
-       units = "in",
-       create.dir = TRUE)
 ```
 
 # Appendix
