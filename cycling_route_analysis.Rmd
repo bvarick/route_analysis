@@ -1,0 +1,336 @@
+---
+title: "East High Cycling Routes"
+output:
+  html_document:
+    toc: true
+    toc_depth: 5
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+editor_options:
+  chunk_output_type: console
+---
+
+# Input Data & Configuration
+
+## Libraries
+
+```{r libs, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+date()
+rm(list=ls())
+library(tidyverse)
+library(ggmap)
+library(sf)
+library(osrm)
+library(smoothr)
+library(magick)
+library(ggnewscale)
+library(rsvg)
+fig.height <- 6
+set.seed(1)
+```
+
+## School Location Data
+
+```{r gpkg, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+WI_schools <- st_transform(st_read(dsn = "data/Schools/Wisconsin_Public_Schools_-5986231931870160084.gpkg"), crs = 4326)
+WI_schools <- WI_schools %>% mutate(geom = SHAPE)
+```
+
+## Addresses Data
+
+```{r addresses, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+addresses <- read_csv(file="data/addresses/Addresses_Students_EastHS_2024_GeocodeResults.csv") %>%
+  filter(lat > 0) %>%
+  st_as_sf(coords=c("lon","lat"), crs=4326)
+```
+(Remember that x = lon and y = lat.)
+
+## Bike Level of Traffic Stress (LTS)
+
+```{r bikelts, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+bike_lts <- st_read("data/bike_lts/bike_lts_DANE.geojson")
+# make lts attribute a factor
+bike_lts[["lts"]] <- as.factor(bike_lts$LTS_F)
+# remove segments with an LTS value of 9
+bike_lts <- bike_lts %>% filter(lts != 9)
+
+# set color scale
+bike_lts_scale <- data.frame(code = c(1, 2, 3, 4, 9),
+                             color = c("#1a9641",
+                                       "#a6d96a",
+                                       "#fdae61",
+                                       "#d7191c",
+                                       "#d7191c"))
+```
+
+# External sources configurations
+
+## Open Source Routing Machine (OSRM)
+
+```{r osrm, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+options(osrm.server = "http://127.0.0.1:5000/")
+options(osrm.profile = "bike")
+```
+
+## Stadia Maps API Key
+
+```{r stadiamaps, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+register_stadiamaps(key = substr(read_file(file = "api_keys/stadia_api_key"), 1, 36))
+```
+# Analysis
+
+```{r analysisPreamble, eval = TRUE, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+radius <- 3 # miles
+levels <- c(1)
+res <- 100
+threshold <- 1
+```
+
+## Subset Addresses Within `r radius` Miles
+
+```{r cycleBoundary, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+cycle_boundary_m <- radius*1609
+school_focus <- data.frame(name = c("East High School"), NCES_CODE = c("550852000925"))
+#school_focus <- data.frame(name = c("IMAP"), NCES_CODE = c("550008203085"))
+
+cycle_boundary_poly <- fill_holes(st_make_valid(osrmIsodistance(
+  loc = WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE),
+#  breaks = c(cycle_boundary_m),
+  breaks = cycle_boundary_m*levels,
+  res = res)
+), units::set_units(threshold, km^2))
+
+addresses_near <- st_intersection(addresses, cycle_boundary_poly)
+```
+Notes:
+
+- _osrmIsoDistance_ is the primary function in the above chunk.
+- This function computes areas that are reachable within a given road
+distance from a point and returns the reachable regions as
+polygons. These areas of equal travel distance are called isodistances.
+- Input is a point represented as an sf object (extended
+data.frame-like objects with a simple feature list column) could be
+other classes, e.g., vector of coods, data.frame of lat tand
+long. etc.
+- Arguments to osrmIsodistances used here are breaks and res
+ - breaks: a numeric vector of break values to define isodistance areas, in meters.
+ - res: number of points used to compute isodistances, one side of the
+square grid, the total number of points will be res*res. Increase res to obtain more detailed isodistances.
+- _fill\_holes_ is also used with a threshold of `r threshold` km^2.
+- _st\_intersection_ is also used on sf objects (simple features?)
+
+## Calculate Routes
+
+```{r routes, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+routes <- list(NULL)
+
+for(i in addresses_near$number) {
+ routes[[i]] <- osrmRoute(
+      src = addresses_near %>% filter(number == i),
+      dst = WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE))
+  message(paste0("done - ", i, "of", max(addresses_near$number)))
+}
+
+routes <- bind_rows(routes)
+```
+
+Notes:
+- _osrmRoute_ is the primary function used above.
+
+
+## Combine routes with Bike LTS
+```{r routeslts, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+
+# Count the routes that intersect or overlap with each segment of the bike_tls network.
+# The intersections have a buffer of 20m
+bike_lts_buffer <- st_buffer(st_intersection(bike_lts, cycle_boundary_poly), 20)
+
+bike_lts_buffer["student_use"] <- unlist(lapply(st_intersects(bike_lts_buffer, routes), length))
+
+bike_lts <- st_join(bike_lts, bike_lts_buffer %>% select(OBJECTID, student_use))
+```
+
+Notes:
+
+
+# Make Maps
+
+
+## Load school and Bike Fed logo
+```{r logos, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+# load logo
+logo <- image_read(path = "other/BFW_Logo_180_x_200_transparent_background.png")
+school_symbol <- image_read_svg(path = "other/school_FILL0_wght400_GRAD0_opsz24.svg")
+```
+
+## Set boundaries and get basemap
+```{r basemap, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+
+bbox <- st_bbox(st_buffer(cycle_boundary_poly, dist = 500))
+bbox <- c(left = as.double(bbox[1]),
+          bottom = as.double(bbox[2]),
+          right = as.double(bbox[3]),
+          top = as.double(bbox[4]))
+
+#get basemap
+basemap <- get_stadiamap(bbox = bbox, zoom = 15, maptype = "stamen_toner_lite")
+```
+
+## Generate map of addresses
+```{r mapaddresses, eval = TRUE, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+
+ggmap(basemap) +
+  labs(title = paste0("Student homes at ",
+                      school_focus %>% pull(name)),
+       x = NULL,
+       y = NULL,
+       color = NULL,
+       fill = "How many students live there") +
+  theme(axis.text=element_blank(),
+        axis.ticks=element_blank(),
+        plot.caption = element_text(color = "grey")) +
+  geom_hex(data = addresses %>% extract(geometry, into = c('Lat', 'Lon'), '\\((.*),(.*)\\)', conv = T),
+           aes(x = Lat,
+               y = Lon),
+           alpha = 0.7) +
+  scale_fill_distiller(palette = "YlOrRd", direction = "reverse") +
+  geom_sf(data = cycle_boundary_poly,
+          inherit.aes = FALSE,
+          aes(color = paste0(radius, " mile cycling boundary")),
+          fill = NA,
+          linewidth = 1) +
+  scale_color_manual(values = "blue", name = NULL) +
+  new_scale_color() +
+  annotation_raster(school_symbol,
+                    # Position adjustments here using plot_box$max/min/range
+                    ymin = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[2] - 0.001,
+                    ymax = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[2] + 0.001,
+                    xmin = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[1] - 0.0015,
+                    xmax = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[1] + 0.0015) +
+  geom_sf_label(data = WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE),
+                inherit.aes = FALSE,
+                mapping = aes(label = school_focus %>% pull(name)),
+                nudge_y = 0.0015,
+                label.size = 0.04,
+                size = 2)
+ggsave(file = paste0("figures/",
+                     school_focus %>% pull(name),
+                     " Addresses_cycling.pdf"),
+       title = paste0(school_focus %>% pull(name), " Addresses"),
+       device = pdf,
+       height = 8.5,
+       width = 11,
+       units = "in",
+       create.dir = TRUE)
+```
+
+## Generate map of routes
+```{r maproutes, eval = TRUE, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+# generate map
+ggmap(basemap) +
+  labs(title = paste0("Cycling routes for students at ",
+    school_focus %>% pull(name)),
+    subtitle = paste0("only showing routes within the ", radius, " mile cycling boundary"),
+    x = NULL,
+    y = NULL,
+    color = NULL,
+    linewidth = "Potential student cyclists") +
+  theme(axis.text=element_blank(),
+        axis.ticks=element_blank(),
+        plot.caption = element_text(color = "grey")) +
+  geom_sf(data = cycle_boundary_poly,
+          inherit.aes = FALSE,
+          aes(color = paste0(radius, " mile cycling boundary")),
+          fill = NA,
+          linewidth = 1) +
+  scale_color_manual(values = "blue", name = NULL) +
+  new_scale_color() +
+  geom_sf(data = bike_lts %>% filter(!is.na(student_use), student_use > 3),
+          inherit.aes = FALSE,
+          aes(linewidth = student_use),
+          color = "mediumvioletred",
+          fill = NA) +
+  scale_linewidth_continuous(range = c(0, 3)) +
+  annotation_raster(school_symbol,
+                    # Position adjustments here using plot_box$max/min/range
+                    ymin = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[2] - 0.001,
+                    ymax = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[2] + 0.001,
+                    xmin = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[1] - 0.0015,
+                    xmax = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[1] + 0.0015) +
+  geom_sf_label(data = WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE),
+                inherit.aes = FALSE,
+                mapping = aes(label = school_focus %>% pull(name)),
+                nudge_y = 0.0015,
+                label.size = 0.04,
+                size = 2)
+
+ggsave(file = paste0("figures/",
+                     school_focus %>% pull(name),
+                     " Routes_cycling.pdf"),
+       title = paste0(school_focus %>% pull(name), " Cycling Routes"),
+       device = pdf,
+       height = 8.5,
+       width = 11,
+       units = "in",
+       create.dir = TRUE)
+```
+
+## Generate map of routes with LTS
+```{r maprouteslts, eval = TRUE, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+# generate map
+ggmap(basemap) +
+  labs(title = paste0("Cycling routes for students at ",
+                      school_focus %>% pull(name)),
+       subtitle = "only showing routes within the cycling boundary",
+       x = NULL,
+       y = NULL,
+       color = NULL,
+       linewidth = "Potential student cyclists") +
+  theme(axis.text=element_blank(),
+        axis.ticks=element_blank(),
+        plot.caption = element_text(color = "grey")) +
+  geom_sf(data = cycle_boundary_poly,
+          inherit.aes = FALSE,
+          aes(color = paste0(radius, " mile cycling boundary")),
+          fill = NA,
+          linewidth = 1) +
+  scale_color_manual(values = "blue", name = NULL) +
+  new_scale_color() +
+  geom_sf(data = bike_lts %>% filter(!is.na(student_use), student_use > 0),
+         inherit.aes = FALSE,
+         aes(color = lts,
+             linewidth = student_use)) +
+  scale_color_manual(values = bike_lts_scale$color, name = "Bike Level of Traffic Stress") +
+  scale_linewidth_continuous(range = c(0, 3)) +
+  annotation_raster(school_symbol,
+                    # Position adjustments here using plot_box$max/min/range
+                    ymin = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[2] - 0.001,
+                    ymax = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[2] + 0.001,
+                    xmin = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[1] - 0.0015,
+                    xmax = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[1] + 0.0015) +
+  geom_sf_label(data = WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE),
+                inherit.aes = FALSE,
+                mapping = aes(label = school_focus %>% pull(name)),
+                nudge_y = 0.0015,
+                label.size = 0.04,
+                size = 2)
+
+ggsave(file = paste0("figures/",
+                     school_focus %>% pull(name),
+                     " Routes - Traffic Stress_cycling.pdf"),
+       title = paste0(school_focus %>% pull(name), " Cycling Routes - Traffic Stress"),
+       device = pdf,
+       height = 8.5,
+       width = 11,
+       units = "in",
+       create.dir = TRUE)
+
+```
+
+# Appendix
+
+```{r chunklast, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+date()
+sessionInfo()
+```

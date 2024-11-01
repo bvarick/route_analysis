@@ -1,5 +1,8 @@
-route_analysis: R/route_analysis.Rmd
-	R -e 'library("rmarkdown"); old_path <- Sys.getenv("PATH"); Sys.setenv(PATH = paste(old_path, "/usr/local/bin", sep = ":")); rmarkdown::render(knit_root_dir = "./../", output_dir = "./html", input = "./R/route_analysis.Rmd", output_file = "./html/route_analysis.html")'
+walk: route_analysis.Rmd
+	R -e 'library("rmarkdown"); old_path <- Sys.getenv("PATH"); Sys.setenv(PATH = paste(old_path, "/usr/local/bin", sep = ":")); rmarkdown::render(knit_root_dir = "./", output_dir = "./html", input = "./route_analysis.Rmd", output_file = "./html/route_analysis.html")'
+
+cycle: cycling_route_analysis.Rmd
+	R -e 'library("rmarkdown"); old_path <- Sys.getenv("PATH"); Sys.setenv(PATH = paste(old_path, "/usr/local/bin", sep = ":")); rmarkdown::render(knit_root_dir = "./", output_dir = "./html", input = "./cycling_route_analysis.Rmd", output_file = "./html/cycling_route_analysis.html")'
 
 clean: clean-data clean-figure clean-script
 
