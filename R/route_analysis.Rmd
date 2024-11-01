@@ -7,7 +7,7 @@ output:
     toc_float:
       collapsed: false
       smooth_scroll: true
-editor_options: 
+editor_options:
   chunk_output_type: console
 ---
 
@@ -35,6 +35,7 @@ set.seed(1)
 ```{r gpkg, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 WI_schools <- st_transform(st_read(dsn = "data/Schools/Wisconsin_Public_Schools_-5986231931870160084.gpkg"), crs = 4326)
 WI_schools <- WI_schools %>% mutate(geom = SHAPE)
+# names(WI_schools)
 ```
 
 ## Addresses Data
@@ -42,8 +43,9 @@ WI_schools <- WI_schools %>% mutate(geom = SHAPE)
 ```{r addresses, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 addresses <- read_csv(file="data/addresses/Addresses_Students_EastHS_2024_GeocodeResults.csv") %>%
   filter(lat > 0) %>%
-  st_as_sf(coords=c("lon","lat"), crs=4326) # remember x=lon and y=lat
+  st_as_sf(coords=c("lon","lat"), crs=4326)
 ```
+(Remember that x = lon and y = lat.)
 
 ## Bike Level of Traffic Stress (LTS)
 
@@ -77,14 +79,13 @@ options(osrm.profile = "walk")
 ```{r stadiamaps, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 register_stadiamaps(key = substr(read_file(file = "api_keys/stadia_api_key"), 1, 36))
 ```
-
 # Analysis
 
 ## Subset Addresses Within 1.5 Miles
 
 ```{r walkBoundary, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
-walk_boundary_m <- 1.5 * 1609 ## walk boundary
-school_focus <- data.frame(name = c("East High School"), NCES_CODE = c("550852000925")) ## school focus
+walk_boundary_m <- 1.5*1609
+school_focus <- data.frame(name = c("East High School"), NCES_CODE = c("550852000925"))
 
 walk_boundary_poly <- fill_holes(st_make_valid(osrmIsodistance(
   loc = WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE),
@@ -95,18 +96,38 @@ walk_boundary_poly <- fill_holes(st_make_valid(osrmIsodistance(
 addresses_near <- st_intersection(addresses, walk_boundary_poly)
 ```
 
-## Calculate walking routes for each student
+## Calculate Routes
 
 ```{r routes, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
-
-## calculate routes
 routes <- list(NULL)
+
 for(i in addresses_near$number) {
  routes[[i]] <- osrmRoute(
       src = addresses_near %>% filter(number == i),
       dst = WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE))
   message(paste0("done - ", i, "of", max(addresses_near$number)))
 }
+
+
+routes <- bind_rows(routes)
+```
+
+## Bike Level of Traffic Stress (LTS)
+
+```{r bikelts, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+bike_lts <- st_read("data/bike_lts/bike_lts_DANE.geojson")
+# make lts attribute a factor
+bike_lts[["lts"]] <- as.factor(bike_lts$LTS_F)
+# remove segments with an LTS value of 9
+bike_lts <- bike_lts %>% filter(lts != 9)
+
+# set color scale
+bike_lts_scale <- data.frame(code = c(1, 2, 3, 4, 9),
+                             color = c("#1a9641",
+                                       "#a6d96a",
+                                       "#fdae61",
+                                       "#d7191c",
+                                       "#d7191c"))
 routes <- bind_rows(routes)
 ```
 
@@ -123,7 +144,8 @@ bike_lts_buffer["student_use"] <- unlist(lapply(st_intersects(bike_lts_buffer, r
 bike_lts <- st_join(bike_lts, bike_lts_buffer %>% select(OBJECTID, student_use))
 ```
 
-# Generate Maps
+# Make Maps
+
 
 ## Load school and Bike Fed logo
 ```{r logos, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
@@ -283,6 +305,7 @@ ggmap(basemap) +
                 nudge_y = 0.0015,
                 label.size = 0.04,
                 size = 2)
+
 ggsave(file = paste0("figures/",
                      school_focus %>% pull(name),
                      " Routes - Traffic Stress.pdf"),
@@ -292,9 +315,6 @@ ggsave(file = paste0("figures/",
        width = 11,
        units = "in",
        create.dir = TRUE)
-
-
-
 
 ```
 
