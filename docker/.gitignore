@@ -1,0 +1,10 @@
+# Ignore everything in this directory
+*
+# Except this file
+!.gitignore
+!docker-compose.yml
+!docker-compose-2.yml
+!preprocess.sh
+!data-raw/
+!data-foot/
+!data-bicycle/
