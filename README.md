@@ -29,7 +29,7 @@ This script will generate a few figures:
 - `make walk` will run *route_analysis.Rmd* which
 calculates the walking routes using OSRM.
 - `make cycle-osrm` will run *cycling_route_analysis.Rmd* which calculates the biking routes using OSRM.
-- `make cycle_brouter` will run *cycling_route_analysis_brouter.Rmd* which calculates the biking routes using brouter.
+- `make cycle-brouter` will run *cycling_route_analysis_brouter.Rmd* which calculates the biking routes using brouter.
 
 ## Misc.
 - [Bike Level of Traffic Stress (LTS)](https://www.dvrpc.org/webmaps/bike-lts/analysis/)
