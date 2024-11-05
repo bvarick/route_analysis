@@ -155,7 +155,7 @@ routes <- bind_rows(routes)
 ```
 
 Notes:
-- _osrmRoute_ is the primary function used above.
+- this queries the brouter server to get routes
 
 
 ## Combine routes with Bike LTS
