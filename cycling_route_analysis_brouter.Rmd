@@ -71,15 +71,16 @@ bike_lts_scale <- data.frame(code = c(1, 2, 3, 4, 9),
 ## Open Source Routing Machine (OSRM)
 
 ```{r osrm, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+# Set url and profile of OSRM server
 options(osrm.server = "http://127.0.0.1:5001/")
 options(osrm.profile = "bike")
 ```
 
 ## Brouter options
 ```{r brouter, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
-# Prepare the URL query
-url <- "http://127.0.0.1:17777/brouter"
-profile <- "trekking"  # choose appropriate profile
+# Set url and profile of brouter server
+brouter_url <- "http://127.0.0.1:17777/brouter"
+brouter_profile <- "trekking"
 ```
 
 ## Stadia Maps API Key
@@ -136,12 +137,12 @@ routes <- list(NULL)
 school_focus_location <- WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% select(LAT, LON)
 for(i in addresses_near %>% arrange(number) %>% pull(number)) {
   query <- paste0(
-  url, 
+  brouter_url, 
   "?lonlats=",
   (addresses_near %>% filter(number == i) %>% pull(point) %>% str_split(., ","))[[1]][1], ",", 
   (addresses_near %>% filter(number == i) %>% pull(point) %>% str_split(., ","))[[1]][2], "|", 
   school_focus_location$LON, ",", school_focus_location$LAT,
-  "&profile=", profile,
+  "&profile=", brouter_profile,
   "&alternativeidx=0&format=geojson"
 )
   response <- GET(query)
