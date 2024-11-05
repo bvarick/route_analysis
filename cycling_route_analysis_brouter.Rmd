@@ -28,6 +28,7 @@ library(ggnewscale)
 library(rsvg)
 library(httr)
 library(jsonlite)
+library(parallel)
 fig.height <- 6
 set.seed(1)
 ```
@@ -176,14 +177,37 @@ bike_lts <- left_join(bike_lts, as.data.frame(bike_lts_buffer %>% select(OBJECTI
 Notes: for each segment in bike_lts, this counts how many student's calculated routes intersect with it (within a 20 m buffer)
 
 ```{r routeslts, eval = FALSE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
-routes_lts <-list(NULL)
-for(i in addresses_near %>% arrange(number) %>% pull(number)) {
-  lts_segments <- st_intersects(routes %>% filter(student_number == i), bike_lts_buffer)
-  lts_max <- max(bike_lts_buffer %>% filter(OBJECTID.x ))
-  routes_lts[[i]] <- routes_lts_run
+getLTSForRoute <- function(i) {
+  lts_segments <- (bike_lts_buffer %>% filter(student_use > 0))$OBJECTID[st_intersects(bike_lts_buffer %>% filter(student_use > 0), routes %>% filter(student_number == i), sparse = FALSE)]
+  lts_max <- max(bike_lts_buffer %>% filter(OBJECTID %in% lts_segments) %>% pull(LTS_F), na.rm = TRUE)
+  lts_average <- mean(bike_lts_buffer %>% filter(OBJECTID %in% lts_segments) %>% pull(LTS_F), na.rm = TRUE)
+#  routes_lts[[as.character(i)]] <- data.frame("student_number" = c(as.character(i)), "lts_max" = c(lts_max), "lts_average" = c(lts_average))
+  return(data.frame("student_number" = i, "lts_max" = lts_max, "lts_average" = lts_average))
   message(paste0("done - ", i, " of ", max(addresses_near$number)))
 }
+
+routes_lts <- list(NULL)
+# routes_lts <- lapply(head(addresses_near %>% arrange(number) %>% pull(number)),
+#        getLTSForRoute)
+
+routes_lts <- mclapply(addresses_near %>% arrange(number) %>% pull(number),
+                       getLTSForRoute,
+                       mc.cores = detectCores() / 2,
+                       mc.cleanup = TRUE,
+                       mc.preschedule = TRUE,
+                       mc.silent = FALSE)
+
+# for(i in addresses_near %>% arrange(number) %>% pull(number)) {
+#   lts_segments <- bike_lts_buffer$OBJECTID[st_intersects(bike_lts_buffer, routes %>% filter(student_number == i), sparse = FALSE)]
+#   lts_max <- max(bike_lts_buffer %>% filter(OBJECTID %in% lts_segments) %>% pull(LTS_F), na.rm = TRUE)
+#   lts_average <- mean(bike_lts_buffer %>% filter(OBJECTID %in% lts_segments) %>% pull(LTS_F), na.rm = TRUE)
+#   routes_lts[[i]] <- data.frame("student_number" = c(i), "lts_max" = c(lts_max), "lts_average" = c(lts_average))
+#   message(paste0("done - ", i, " of ", max(addresses_near$number)))
+# }
+
 routes_lts <- bind_rows(routes_lts)
+
+addresses_near <- left_join(addresses_near, routes_lts, join_by("number"=="student_number"))
 ```
 
 Notes: for each student's route, this finds which bike_lts segment it intersects with and calculates a max and an average
@@ -353,6 +377,55 @@ ggmap(basemap) +
 ggsave(file = paste0("figures/",
                      school_focus %>% pull(name),
                      " Routes - Traffic Stress_cycling.pdf"),
+       title = paste0(school_focus %>% pull(name), " Cycling Routes - Traffic Stress"),
+       device = pdf,
+       height = 8.5,
+       width = 11,
+       units = "in",
+       create.dir = TRUE)
+
+```
+
+## Generate map of addresses with LTS
+```{r mapaddresseslts, eval = FALSE, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+# generate map
+ggmap(basemap) +
+  labs(title = paste0("Level of Traffic stress for biking for students at ",
+                      school_focus %>% pull(name)),
+       subtitle = "only showing routes within the cycling boundary",
+       x = NULL,
+       y = NULL,
+       color = "Average Bike Level of Traffic stress for route to school") +
+  theme(axis.text=element_blank(),
+        axis.ticks=element_blank(),
+        plot.caption = element_text(color = "grey")) +
+  geom_sf(data = cycle_boundary_poly,
+          inherit.aes = FALSE,
+          aes(color = paste0(radius, " mile cycling boundary")),
+          fill = NA,
+          linewidth = 1) +
+  scale_color_manual(values = "blue", name = NULL) +
+  new_scale_color() +
+  geom_sf(data = addresses_near,
+         inherit.aes = FALSE,
+         aes(color = lts_average)) +
+  scale_color_gradientn(colors = bike_lts_scale$color, name = "Average Bike Level of Traffic Stress\nfor route from that address", limits = c(1,4)) +
+  annotation_raster(school_symbol,
+                    # Position adjustments here using plot_box$max/min/range
+                    ymin = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[2] - 0.001,
+                    ymax = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[2] + 0.001,
+                    xmin = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[1] - 0.0015,
+                    xmax = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[1] + 0.0015) +
+  geom_sf_label(data = WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE),
+                inherit.aes = FALSE,
+                mapping = aes(label = school_focus %>% pull(name)),
+                nudge_y = 0.0015,
+                label.size = 0.04,
+                size = 2)
+
+ggsave(file = paste0("figures/",
+                     school_focus %>% pull(name),
+                     " Addresses - Traffic Stress_cycling.pdf"),
        title = paste0(school_focus %>% pull(name), " Cycling Routes - Traffic Stress"),
        device = pdf,
        height = 8.5,
