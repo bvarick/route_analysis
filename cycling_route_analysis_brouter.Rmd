@@ -426,7 +426,7 @@ ggmap(basemap) +
 ggsave(file = paste0("figures/",
                      school_focus %>% pull(name),
                      " Addresses - Traffic Stress_cycling.pdf"),
-       title = paste0(school_focus %>% pull(name), " Cycling Routes - Traffic Stress"),
+       title = paste0(school_focus %>% pull(name), " Student Addresses - Cycling Traffic Stress"),
        device = pdf,
        height = 8.5,
        width = 11,
