@@ -148,7 +148,7 @@ bike_lts_buffer <- st_buffer(st_intersection(bike_lts, cycle_boundary_poly), 20)
 
 bike_lts_buffer["student_use"] <- unlist(lapply(st_intersects(bike_lts_buffer, routes), length))
 
-bike_lts <- st_join(bike_lts, bike_lts_buffer %>% select(OBJECTID, student_use))
+bike_lts <- left_join(bike_lts, as.data.frame(bike_lts_buffer %>% select(OBJECTID, student_use)), by = "OBJECTID")
 ```
 
 Notes:
