@@ -22,4 +22,4 @@ api_key
 R/route_analysis.html
 log/
 # Exclude html files generated in the top directory (from RStudio runs)
-./*.html
+*.html
