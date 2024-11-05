@@ -52,7 +52,7 @@ addresses <- read_csv(file="data/addresses/Addresses_Students_EastHS_2024_Geocod
 ## Bike Level of Traffic Stress (LTS)
 
 ```{r bikelts, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
-bike_lts <- st_read("data/bike_lts/bike_lts_DANE.geojson")
+bike_lts <- st_transform(st_read("data/bike_lts/bike_lts_DANE.geojson"), crs = 4326)
 # make lts attribute a factor
 bike_lts[["lts"]] <- as.factor(bike_lts$LTS_F)
 # remove segments with an LTS value of 9
@@ -105,12 +105,12 @@ cycle_boundary_m <- radius*1609
 school_focus <- data.frame(name = c("East High School"), NCES_CODE = c("550852000925"))
 #school_focus <- data.frame(name = c("IMAP"), NCES_CODE = c("550008203085"))
 
-cycle_boundary_poly <- fill_holes(st_make_valid(osrmIsodistance(
+cycle_boundary_poly <- st_transform(fill_holes(st_make_valid(osrmIsodistance(
   loc = WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE),
 #  breaks = c(cycle_boundary_m),
   breaks = cycle_boundary_m*levels,
   res = res)
-), units::set_units(threshold, km^2))
+), units::set_units(threshold, km^2)), crs = 4326)
 
 addresses_near <- st_intersection(addresses, cycle_boundary_poly)
 ```
@@ -155,7 +155,7 @@ for(i in addresses_near %>% arrange(number) %>% pull(number)) {
   message(paste0("done - ", i, " of ", max(addresses_near$number)))
 }
 
-routes <- bind_rows(routes)
+routes <- st_transform(bind_rows(routes), crs = 4326)
 ```
 
 Notes:
@@ -210,7 +210,7 @@ routes_lts <- bind_rows(routes_lts)
 addresses_near <- left_join(addresses_near, routes_lts, join_by("number"=="student_number"))
 ```
 
-Notes: for each student's route, this finds which bike_lts segment it intersects with and calculates a max and an average
+Notes: for each student's route, this finds which bike_lts segment it intersects with and calculates a max and an average level of traffic stress (LTS). This takes a while, so a parallelized it. There's probably a more efficient way to do this calculation.
 
 # Make Maps
 
