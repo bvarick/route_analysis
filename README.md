@@ -22,8 +22,14 @@ This script will generate a few figures:
 ![example routes-lts figure](examples/example-routes-lts.png)
 
 ## Using make
-The command `make route_analysis` will run *route_analysis.Rmd* which
-is an R markdown file containing the original R script *route_analysis.R*
+- `make osrm-data`: downloads the OpenStreetMap data for Wisconsin, and preproccesses it for use with OSRM.
+- `make osrm-container`: starts the OSRM containers (backends and frontends) for walking and biking.
+- `make brouter-data`: clones the repositories for brouter and brouter-web and downloads the segment data. It also builds the docker images for brouter and brouter-web.
+- `make brouter-container`: starts the brouter containers (backend and frontend).
+- `make walk` will run *route_analysis.Rmd* which
+calculates the walking routes using OSRM.
+- `make cycle-osrm` will run *cycling_route_analysis.Rmd* which calculates the biking routes using OSRM.
+- `make cycle_brouter` will run *cycling_route_analysis_brouter.Rmd* which calculates the biking routes using brouter.
 
 ## Misc.
 - [Bike Level of Traffic Stress (LTS)](https://www.dvrpc.org/webmaps/bike-lts/analysis/)

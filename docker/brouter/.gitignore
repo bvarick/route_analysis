@@ -5,3 +5,6 @@
 
 # Except the list of relevant segments
 !segments.csv
+
+# Except docker-compose.yml
+!docker-compose.yml
