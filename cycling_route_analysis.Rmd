@@ -140,7 +140,7 @@ Notes:
 
 
 ## Combine routes with Bike LTS
-```{r routeslts, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+```{r ltscount, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 
 # Count the routes that intersect or overlap with each segment of the bike_tls network.
 # The intersections have a buffer of 20m
@@ -150,6 +150,7 @@ bike_lts_buffer["student_use"] <- unlist(lapply(st_intersects(bike_lts_buffer, r
 
 bike_lts <- left_join(bike_lts, as.data.frame(bike_lts_buffer %>% select(OBJECTID, student_use)), by = "OBJECTID")
 ```
+Notes: for each segment in bike_lts, this counts how many student's calculated routes intersect with it (within a 20 m buffer)
 
 Notes:
 
