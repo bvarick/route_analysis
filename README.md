@@ -18,8 +18,11 @@ This script will generate a few figures:
 ### A map of all the walking routes within the walk boundary:
 ![example routes figure](examples/example-routes.png)
 
-### A map of those routes colored by the level of traffic stress to bike
+### A map of those walking routes colored by the level of traffic stress to bike
 ![example routes-lts figure](examples/example-routes-lts.png)
+
+### A map of cycling routes colored by the level of traffic stress to bike (with a 3 mile radius)
+![example routes-lts figure](examples/example-routes-lts_cycling.png)
 
 ## Using make
 - `make osrm-data`: downloads the OpenStreetMap data for Wisconsin, and preproccesses it for use with OSRM.
