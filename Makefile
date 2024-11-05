@@ -4,17 +4,27 @@ walk: route_analysis.Rmd
 cycle: cycling_route_analysis.Rmd
 	R -e 'library("rmarkdown"); old_path <- Sys.getenv("PATH"); Sys.setenv(PATH = paste(old_path, "/usr/local/bin", sep = ":")); rmarkdown::render(knit_root_dir = "./", output_dir = "./html", input = "./cycling_route_analysis.Rmd", output_file = "./html/cycling_route_analysis.html")'
 
-container: ./docker/docker-compose.yml
-	cd ./docker/; docker compose up -d
+osrm-container: ./docker/osrm/docker-compose.yml
+	cd ./docker/osrm/; docker compose up -d
 
-data:
-	cd ./docker/; docker run -t -v "./data-foot:/data" -v "./data-raw/wisconsin-latest.osm.pbf:/data/wisconsin-latest.osm.pbf" osrm/osrm-backend osrm-extract -p /opt/foot.lua /data/wisconsin-latest.osm.pbf
-	cd ./docker/; docker run -t -v "./data-foot:/data" -v "./data-raw/wisconsin-latest.osm.pbf:/data/wisconsin-latest.osm.pbf" osrm/osrm-backend osrm-partition /data/wisconsin-latest.osrm
-	cd ./docker/; docker run -t -v "./data-foot:/data" -v "./data-raw/wisconsin-latest.osm.pbf:/data/wisconsin-latest.osm.pbf" osrm/osrm-backend osrm-customize /data/wisconsin-latest.osrm
-	cd ./docker/; docker run -t -v "./data-bicycle:/data" -v "./data-raw/wisconsin-latest.osm.pbf:/data/wisconsin-latest.osm.pbf" osrm/osrm-backend osrm-extract -p /opt/bicycle.lua /data/wisconsin-latest.osm.pbf
-	cd ./docker/; docker run -t -v "./data-bicycle:/data" -v "./data-raw/wisconsin-latest.osm.pbf:/data/wisconsin-latest.osm.pbf" osrm/osrm-backend osrm-partition /data/wisconsin-latest.osrm
-	cd ./docker/; docker run -t -v "./data-bicycle:/data" -v "./data-raw/wisconsin-latest.osm.pbf:/data/wisconsin-latest.osm.pbf" osrm/osrm-backend osrm-customize /data/wisconsin-latest.osrm
+osrm-data:
+	cd ./docker/osrm/; docker run -t -v "./data-foot:/data" -v "./data-raw/wisconsin-latest.osm.pbf:/data/wisconsin-latest.osm.pbf" osrm/osrm-backend osrm-extract -p /opt/foot.lua /data/wisconsin-latest.osm.pbf
+	cd ./docker/osrm/; docker run -t -v "./data-foot:/data" -v "./data-raw/wisconsin-latest.osm.pbf:/data/wisconsin-latest.osm.pbf" osrm/osrm-backend osrm-partition /data/wisconsin-latest.osrm
+	cd ./docker/osrm/; docker run -t -v "./data-foot:/data" -v "./data-raw/wisconsin-latest.osm.pbf:/data/wisconsin-latest.osm.pbf" osrm/osrm-backend osrm-customize /data/wisconsin-latest.osrm
+	cd ./docker/osrm/; docker run -t -v "./data-bicycle:/data" -v "./data-raw/wisconsin-latest.osm.pbf:/data/wisconsin-latest.osm.pbf" osrm/osrm-backend osrm-extract -p /opt/bicycle.lua /data/wisconsin-latest.osm.pbf
+	cd ./docker/osrm/; docker run -t -v "./data-bicycle:/data" -v "./data-raw/wisconsin-latest.osm.pbf:/data/wisconsin-latest.osm.pbf" osrm/osrm-backend osrm-partition /data/wisconsin-latest.osrm
+	cd ./docker/osrm/; docker run -t -v "./data-bicycle:/data" -v "./data-raw/wisconsin-latest.osm.pbf:/data/wisconsin-latest.osm.pbf" osrm/osrm-backend osrm-customize /data/wisconsin-latest.osrm
 
+brouter-container: ./docker/brouter/docker-compose.yml
+	cd ./docker/brouter; docker compose up -d
+
+brouter-data:
+	cd ./docker/brouter/; git clone https://github.com/abrensch/brouter.git
+	cd ./docker/brouter/; wget -i segments.csv -P ./brouter/misc/segments4/
+	cd ./docker/brouter/; git clone https://github.com/nrenner/brouter-web.git
+	cd ./docker/brouter/brouter-web; cp keys.template.js keys.js;
+	cd ./docker/brouter/brouter-web; cp config.template.js config.js
+	cd ./docker/brouter; docker compose build
 
 clean: clean-data clean-figure clean-script
 
