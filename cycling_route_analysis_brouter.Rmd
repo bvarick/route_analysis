@@ -137,18 +137,20 @@ routes <- list(NULL)
 school_focus_location <- WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% select(LAT, LON)
 for(i in addresses_near %>% arrange(number) %>% pull(number)) {
   query <- paste0(
-  brouter_url, 
-  "?lonlats=",
-  (addresses_near %>% filter(number == i) %>% pull(point) %>% str_split(., ","))[[1]][1], ",", 
-  (addresses_near %>% filter(number == i) %>% pull(point) %>% str_split(., ","))[[1]][2], "|", 
-  school_focus_location$LON, ",", school_focus_location$LAT,
-  "&profile=", brouter_profile,
-  "&alternativeidx=0&format=geojson"
-)
+    brouter_url, 
+    "?lonlats=",
+    (addresses_near %>% filter(number == i) %>% pull(point) %>% str_split(., ","))[[1]][1], ",", 
+    (addresses_near %>% filter(number == i) %>% pull(point) %>% str_split(., ","))[[1]][2], "|", 
+    school_focus_location$LON, ",", school_focus_location$LAT,
+    "&profile=", brouter_profile,
+    "&alternativeidx=0&format=geojson"
+  )
   response <- GET(query)
- routes[[i]] <- st_read(content <- content(response, as = "text"), quiet = TRUE)
- 
- 
+  route_run <- st_read(content <- content(response, as = "text"), quiet = TRUE)
+  route_run[["student_number"]] <- i
+  routes[[i]] <- route_run
+  
+  
   message(paste0("done - ", i, " of ", max(addresses_near$number)))
 }
 
