@@ -1,0 +1,26 @@
+---
+services:
+    brouter:
+        container_name: brouter
+        ports:
+            - 17777:17777
+        volumes:
+            - ./brouter/misc/segments4:/segments4
+        image: brouter
+        build:
+            context: ./brouter
+            dockerfile: Dockerfile
+---
+services:
+    brouter-web:
+        container_name: brouter-web
+        ports:
+            - 127.0.0.1:8080:80
+        volumes:
+            - ./brouter-web/config.js:/usr/share/nginx/html/config.js
+            - ./brouter-web/keys.js:/usr/share/nginx/html/keys.js
+            - ./brouter-web/profiles:/usr/share/nginx/html/profiles
+        image: brouter-web
+        build:
+            context: ./brouter-web
+            dockerfile: Dockerfile
