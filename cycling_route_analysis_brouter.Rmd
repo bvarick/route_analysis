@@ -162,7 +162,7 @@ Notes:
 
 
 ## Combine routes with Bike LTS
-```{r routeslts, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+```{r ltscount, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 
 # Count the routes that intersect or overlap with each segment of the bike_tls network.
 # The intersections have a buffer of 20m
@@ -170,11 +170,23 @@ bike_lts_buffer <- st_buffer(st_intersection(bike_lts, cycle_boundary_poly), 20)
 
 bike_lts_buffer["student_use"] <- unlist(lapply(st_intersects(bike_lts_buffer, routes), length))
 
-bike_lts <- st_join(bike_lts, bike_lts_buffer %>% select(OBJECTID, student_use))
+bike_lts <- left_join(bike_lts, as.data.frame(bike_lts_buffer %>% select(OBJECTID, student_use)), by = "OBJECTID")
 ```
 
-Notes:
+Notes: for each segment in bike_lts, this counts how many student's calculated routes intersect with it (within a 20 m buffer)
 
+```{r routeslts, eval = FALSE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+routes_lts <-list(NULL)
+for(i in addresses_near %>% arrange(number) %>% pull(number)) {
+  lts_segments <- st_intersects(routes %>% filter(student_number == i), bike_lts_buffer)
+  lts_max <- max(bike_lts_buffer %>% filter(OBJECTID.x ))
+  routes_lts[[i]] <- routes_lts_run
+  message(paste0("done - ", i, " of ", max(addresses_near$number)))
+}
+routes_lts <- bind_rows(routes_lts)
+```
+
+Notes: for each student's route, this finds which bike_lts segment it intersects with and calculates a max and an average
 
 # Make Maps
 
