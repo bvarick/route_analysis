@@ -27,3 +27,6 @@ is an R markdown file containing the original R script *route_analysis.R*
 
 ## Misc.
 - [Bike Level of Traffic Stress (LTS)](https://www.dvrpc.org/webmaps/bike-lts/analysis/)
+
+## OpenStreetMap Data
+- [wisconsin-latest.osm.pbf](https://download.geofabrik.de/north-america/us/wisconsin-latest.osm.pbf)
