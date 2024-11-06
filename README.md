@@ -2,7 +2,7 @@
 This script generates maps to analyze the potential walking routes for students to their school.
 
 - I excluded the addresses of the students from the repository.
-- The actual route generation is done with OSRM and brouter, those are run locally in docker containers.
+- The actual route generation is done with [`brouter`](https://github.com/abrensch/brouter) (using the *safety* profile) and [`OSRM`](https://github.com/Project-OSRM/osrm-backend) (for the boundary polygons), those are run locally in docker containers.
 - The basemap is pulled from Stadia Maps. The usage of the script is well within the free tier, you'll need an API key from them.
 
 ## Data sources
