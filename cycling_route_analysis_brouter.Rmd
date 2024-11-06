@@ -166,17 +166,17 @@ Notes:
 ```{r ltscount, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 
 # Count the routes that intersect or overlap with each segment of the bike_tls network.
-# The intersections have a buffer of 20m
-bike_lts_buffer <- st_buffer(st_intersection(bike_lts, cycle_boundary_poly), 20)
+# The intersections have a buffer of 10m
+bike_lts_buffer <- st_buffer(st_intersection(bike_lts, cycle_boundary_poly), 10)
 
 bike_lts_buffer["student_use"] <- unlist(lapply(st_intersects(bike_lts_buffer, routes), length))
 
 bike_lts <- left_join(bike_lts, as.data.frame(bike_lts_buffer %>% select(OBJECTID, student_use)), by = "OBJECTID")
 ```
 
-Notes: for each segment in bike_lts, this counts how many student's calculated routes intersect with it (within a 20 m buffer)
+Notes: for each segment in bike_lts, this counts how many student's calculated routes intersect with it (within a 10 m buffer)
 
-```{r routeslts, eval = FALSE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+```{r routeslts, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 getLTSForRoute <- function(i) {
 
   # Filter the routes for the current student number
@@ -194,8 +194,8 @@ getLTSForRoute <- function(i) {
   # calculate segment length in meters
   current_route_lts_intersection$"segment_length" <- as.double(st_length(current_route_lts_intersection))
   
-  # Return the result as a data frame
-  result <- data.frame(
+  # Return the result as a list
+  result <- list(
     student_number = i
     , lts_max = max(current_route_lts_intersection$LTS_F)
     , lts_average = weighted.mean(current_route_lts_intersection$LTS_F, current_route_lts_intersection$segment_length)
@@ -206,7 +206,7 @@ getLTSForRoute <- function(i) {
     , route = as.data.frame(current_route_lts_intersection)
   )
   
-  # Optional message for debugging/progress
+  # Message for progress
   message(paste0("done - ", i))
   
   return(result)
@@ -218,11 +218,11 @@ routes_lts <- list(NULL)
 # Pre-filter the bike_lts_buffer for relevant student use
 relevant_buffer <- bike_lts_buffer %>% filter(student_use > 0)
   
-routes_lts <- lapply(head(addresses_near %>% arrange(number) %>% pull(number)),
-      getLTSForRoute)
+# routes_lts <- lapply(head(addresses_near %>% arrange(number) %>% pull(number)),
+#      getLTSForRoute)
 
-system.time(routes_lts <- lapply(head(addresses_near %>% arrange(number) %>% pull(number)),
-      getLTSForRoute))
+# system.time(routes_lts <- lapply(head(addresses_near %>% arrange(number) %>% pull(number)),
+#       getLTSForRoute))
 
 routes_lts <- mclapply(addresses_near %>% arrange(number) %>% pull(number),
                        getLTSForRoute,
@@ -241,9 +241,22 @@ routes_lts <- mclapply(addresses_near %>% arrange(number) %>% pull(number),
 
 routes_lts <- bind_rows(routes_lts)
 
-ggmap(basemap) + geom_sf(data = routes_lts, inherit.aes = FALSE, aes(color = route.lts, geometry = routes_lts$route.geometry))
+ggmap(basemap) + 
+  geom_sf(data = routes_lts %>% filter(student_number == 6), inherit.aes = FALSE, 
+          aes(color = route.lts, 
+              geometry = route.geometry),
+          linewidth = 2)  + 
+  scale_color_manual(values = bike_lts_scale$color, name = "Bike Level of Traffic Stress")
 
-addresses_near <- left_join(addresses_near, routes_lts, join_by("number"=="student_number"))
+# Join the data with the addresses data
+addresses_near <- left_join(addresses_near, 
+                            routes_lts %>% 
+                              select(c("student_number", "lts_max", "lts_average", "lts_1_dist", "lts_2_dist", "lts_3_dist", "lts_4_dist")), 
+                            join_by("number"=="student_number"),
+                            multiple = "any")
+
+# add supplemental analysis
+addresses_near <- addresses_near %>% mutate(lts_34_dist = lts_3_dist + lts_4_dist)
 ```
 
 Notes: for each student's route, this finds which bike_lts segment it intersects with and calculates a max and an average level of traffic stress (LTS). This takes a while, so a parallelized it. There's probably a more efficient way to do this calculation.
@@ -422,16 +435,15 @@ ggsave(file = paste0("figures/",
 
 ```
 
-## Generate map of addresses with LTS
-```{r mapaddresseslts, eval = FALSE, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+## Generate map of routes with LTS
+```{r mapaddresseslts, eval = TRUE, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 # generate map
 ggmap(basemap) +
   labs(title = paste0("Level of Traffic stress for biking for students at ",
                       school_focus %>% pull(name)),
        subtitle = "only showing routes within the cycling boundary",
        x = NULL,
-       y = NULL,
-       color = "Average Bike Level of Traffic stress for route to school") +
+       y = NULL) +
   theme(axis.text=element_blank(),
         axis.ticks=element_blank(),
         plot.caption = element_text(color = "grey")) +
@@ -442,10 +454,15 @@ ggmap(basemap) +
           linewidth = 1) +
   scale_color_manual(values = "blue", name = NULL) +
   new_scale_color() +
-  geom_sf(data = addresses_near,
+  geom_sf(data = routes_lts %>% filter(route$student_use >= 4),
          inherit.aes = FALSE,
-         aes(color = lts_average)) +
-  scale_color_gradientn(colors = bike_lts_scale$color, name = "Average Bike Level of Traffic Stress\nfor route from that address", limits = c(1,4)) +
+         aes(geometry = route$geometry,
+             color = route$lts,
+             linewidth = route$student_use)) +
+  #scale_color_gradientn(colors = bike_lts_scale$color, name = "Length of high stress travel on route from that address", limits = c(1,4)) +
+  scale_color_manual(values = bike_lts_scale$color, name = "Bike Level of Traffic Stress") +
+  #scale_color_distiller(palette = "YlOrRd", direction = "reverse") +
+  scale_linewidth_continuous(range = c(0, 3)) +
   annotation_raster(school_symbol,
                     # Position adjustments here using plot_box$max/min/range
                     ymin = as.double((WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% pull(geom))[[1]])[2] - 0.001,
@@ -461,7 +478,7 @@ ggmap(basemap) +
 
 ggsave(file = paste0("figures/",
                      school_focus %>% pull(name),
-                     " Addresses - Traffic Stress_cycling.pdf"),
+                     " Routes - Traffic Stress_cycling_new.pdf"),
        title = paste0(school_focus %>% pull(name), " Student Addresses - Cycling Traffic Stress"),
        device = pdf,
        height = 8.5,
