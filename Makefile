@@ -1,3 +1,9 @@
+all: data containers cycle
+
+data: osrm-data brouter-data
+containers: osrm-container brouter-container
+cycle: cycle_brouter
+
 walk: route_analysis.Rmd
 	R -e 'library("rmarkdown"); old_path <- Sys.getenv("PATH"); Sys.setenv(PATH = paste(old_path, "/usr/local/bin", sep = ":")); rmarkdown::render(knit_root_dir = "./", output_dir = "./html", input = "./route_analysis.Rmd", output_file = "./html/route_analysis.html")'
 
@@ -23,24 +29,10 @@ brouter-container: ./docker/brouter/docker-compose.yml
 	cd ./docker/brouter; docker compose up -d
 
 brouter-data:
-	cd ./docker/brouter/; git clone https://github.com/abrensch/brouter.git
+	cd ./docker/brouter/; rm -rf ./brouter; git clone https://github.com/abrensch/brouter.git
 	cd ./docker/brouter/; wget -i segments.csv -P ./brouter/misc/segments4/
 	cd ./docker/brouter/; cp safety.brf ./brouter/misc/profiles2/safety.brf
-	cd ./docker/brouter/; git clone https://github.com/nrenner/brouter-web.git
+	cd ./docker/brouter/; rm -rf ./brouter-web; git clone https://github.com/nrenner/brouter-web.git
 	cd ./docker/brouter/brouter-web; cp keys.template.js keys.js;
 	cd ./docker/brouter/brouter-web; cp config.template.js config.js
 	cd ./docker/brouter; docker compose build
-
-clean: clean-data clean-figure clean-script
-
-clean-data:
-	rm -vf ./R/data/*.rds
-
-clean-script:
-	rm -rvf ./*.md
-
-clean-figure:
-	rm -rvf ./figure/
-
-.PHONY: data
-
