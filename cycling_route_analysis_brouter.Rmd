@@ -81,7 +81,7 @@ options(osrm.profile = "bike")
 ```{r brouter, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 # Set url and profile of brouter server
 brouter_url <- "http://127.0.0.1:17777/brouter"
-brouter_profile <- "trekking"
+brouter_profile <- "safety"
 ```
 
 ## Stadia Maps API Key

@@ -8,3 +8,6 @@
 
 # Except docker-compose.yml
 !docker-compose.yml
+
+# Except safety profiles
+!safety.brf

@@ -25,6 +25,7 @@ brouter-container: ./docker/brouter/docker-compose.yml
 brouter-data:
 	cd ./docker/brouter/; git clone https://github.com/abrensch/brouter.git
 	cd ./docker/brouter/; wget -i segments.csv -P ./brouter/misc/segments4/
+	cd ./docker/brouter/; cp safety.brf ./brouter/misc/profiles2/safety.brf
 	cd ./docker/brouter/; git clone https://github.com/nrenner/brouter-web.git
 	cd ./docker/brouter/brouter-web; cp keys.template.js keys.js;
 	cd ./docker/brouter/brouter-web; cp config.template.js config.js
