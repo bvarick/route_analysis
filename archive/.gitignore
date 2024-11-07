@@ -2,9 +2,4 @@
 *
 # Except this file
 !.gitignore
-!docker-compose.yml
-!docker-compose-2.yml
-!preprocess.sh
-!data-raw/
-!data-foot/
-!data-bicycle/
+!cycling_route_analysis.Rmd
