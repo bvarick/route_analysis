@@ -29,10 +29,10 @@ brouter-container: ./docker/brouter/docker-compose.yml
 	cd ./docker/brouter; docker compose up -d
 
 brouter-data:
-	cd ./docker/brouter/; rm -rf ./brouter; git clone https://github.com/abrensch/brouter.git
+	cd ./docker/brouter/; rm -rf ./brouter-bkup/; mv -v ./brouter/ ./brouter-bkup/; git clone https://github.com/abrensch/brouter.git
 	cd ./docker/brouter/; wget -i segments.csv -P ./brouter/misc/segments4/
 	cd ./docker/brouter/; cp safety.brf ./brouter/misc/profiles2/safety.brf
-	cd ./docker/brouter/; rm -rf ./brouter-web; git clone https://github.com/nrenner/brouter-web.git
+	cd ./docker/brouter/; rm -rf ./brouter-web-bkup/; mv -v ./brouter-web/ ./brouter-web-bkup/; git clone https://github.com/nrenner/brouter-web.git
 	cd ./docker/brouter/brouter-web; cp keys.template.js keys.js;
 	cd ./docker/brouter/brouter-web; cp config.template.js config.js
 	cd ./docker/brouter; docker compose build

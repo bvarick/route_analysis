@@ -16,6 +16,7 @@ editor_options:
 ## Libraries
 
 ```{r libs, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+#foo
 date()
 rm(list=ls())
 library(tidyverse)
@@ -327,6 +328,8 @@ ggsave(file = paste0("figures/",
 ```
 
 # Appendix
+
+This script has been moved to ./archive/.
 
 ```{r chunklast, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 date()
