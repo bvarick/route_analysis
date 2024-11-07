@@ -30,6 +30,7 @@ library(httr)
 library(jsonlite)
 library(parallel)
 fig.height <- 6
+runTLS <- FALSE
 set.seed(1)
 ```
 
@@ -186,9 +187,9 @@ bike_lts_buffer["student_use"] <- unlist(lapply(st_intersects(bike_lts_buffer, r
 bike_lts <- left_join(bike_lts, as.data.frame(bike_lts_buffer %>% select(OBJECTID, student_use)), by = "OBJECTID")
 ```
 
-Notes: for each segment in bike_lts, this counts how many student's calculated routes intersect with it (within a 10 m buffer)
+Notes: for each segment in bike_lts, this counts how many student&rsquo;s calculated routes intersect with it (within a 10 m buffer)
 
-```{r routeslts, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+```{r routeslts, eval = runTLS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 getLTSForRoute <- function(i) {
 
   # Filter the routes for the current student number
