@@ -255,8 +255,8 @@ routes_lts <- bind_rows(routes_lts)
 
 ggmap(basemap) + 
   geom_sf(data = routes_lts %>% filter(student_number == 6), inherit.aes = FALSE, 
-          aes(color = route.lts, 
-              geometry = route.geometry),
+          aes(color = route$lts, 
+              geometry = route$geometry),
           linewidth = 2)  + 
   scale_color_manual(values = bike_lts_scale$color, name = "Bike Level of Traffic Stress")
 
