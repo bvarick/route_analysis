@@ -15,6 +15,7 @@ data
 data-bkup/
 data-bkup
 *.R
+!R/functions.R
 *.bak
 trash/
 api_key
