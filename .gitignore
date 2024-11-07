@@ -16,7 +16,6 @@ data-bkup/
 data-bkup
 *.R
 *.bak
-archive/
 trash/
 api_key
 R/route_analysis.html
