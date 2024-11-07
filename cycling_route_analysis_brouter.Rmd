@@ -30,8 +30,10 @@ library(httr)
 library(jsonlite)
 library(parallel)
 fig.height <- 6
-runTLS <- FALSE
 set.seed(1)
+runTLS <- TRUE
+logo <- image_read(path = "other/BFW_Logo_180_x_200_transparent_background.png")
+school_symbol <- image_read_svg(path = "other/school_FILL0_wght400_GRAD0_opsz24.svg")
 ```
 
 ## School Location Data
@@ -198,7 +200,7 @@ Notes:
 source("./R/functions.R")
 ```
 
-```{r routeslts, eval = runTLS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+```{r routeslts, eval = runTLS, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 # Start with routes_lts as a NULL list
 routes_lts <- list(NULL)
 
@@ -221,6 +223,11 @@ Notes:
   probably a more efficient way to do this calculation.
 - see ./R/functions.R for defintion of getLTSForRoute()
 
+
+# Make Maps
+
+## Generate map with LTS data
+
 ```{r maplts, eval = runTLS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 ggmap(basemap) +
   geom_sf(data = routes_lts %>% filter(student_number == 6), inherit.aes = FALSE,
@@ -238,16 +245,6 @@ addresses_near <- left_join(addresses_near,
 
 # add supplemental analysis
 addresses_near <- addresses_near %>% mutate(lts_34_dist = lts_3_dist + lts_4_dist)
-```
-
-# Make Maps
-
-
-## Load school and Bike Fed logo
-```{r logos, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
-# load logo
-logo <- image_read(path = "other/BFW_Logo_180_x_200_transparent_background.png")
-school_symbol <- image_read_svg(path = "other/school_FILL0_wght400_GRAD0_opsz24.svg")
 ```
 
 ## Generate map of addresses
@@ -349,8 +346,8 @@ ggsave(file = paste0("figures/",
        create.dir = TRUE)
 ```
 
-## Generate map of routes with LTS
-```{r maprouteslts, eval = TRUE, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+## Generate map of routes with LTS (1)
+```{r maprouteslts, eval = runTLS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 # generate map
 ggmap(basemap) +
   labs(title = paste0("Cycling routes for students at ",
@@ -401,8 +398,9 @@ ggsave(file = paste0("figures/",
 
 ```
 
-## Generate map of routes with LTS
-```{r mapaddresseslts, eval = TRUE, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+## Generate map of routes with LTS (2)
+
+```{r mapaddresseslts, eval = runTLS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 # generate map
 ggmap(basemap) +
   labs(title = paste0("Level of Traffic stress for biking for students at ",
