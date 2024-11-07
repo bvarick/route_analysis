@@ -161,6 +161,18 @@ routes <- st_transform(bind_rows(routes), crs = 4326)
 Notes:
 - this queries the brouter server to get routes
 
+## Set boundaries and get basemap
+```{r basemap, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+
+bbox <- st_bbox(st_buffer(cycle_boundary_poly, dist = 500))
+bbox <- c(left = as.double(bbox[1]),
+          bottom = as.double(bbox[2]),
+          right = as.double(bbox[3]),
+          top = as.double(bbox[4]))
+
+#get basemap
+basemap <- get_stadiamap(bbox = bbox, zoom = 15, maptype = "stamen_toner_lite")
+```
 
 ## Combine routes with Bike LTS
 ```{r ltscount, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
@@ -243,8 +255,8 @@ routes_lts <- bind_rows(routes_lts)
 
 ggmap(basemap) + 
   geom_sf(data = routes_lts %>% filter(student_number == 6), inherit.aes = FALSE, 
-          aes(color = route.lts, 
-              geometry = route.geometry),
+          aes(color = route$lts, 
+              geometry = route$geometry),
           linewidth = 2)  + 
   scale_color_manual(values = bike_lts_scale$color, name = "Bike Level of Traffic Stress")
 
@@ -269,19 +281,6 @@ Notes: for each student's route, this finds which bike_lts segment it intersects
 # load logo
 logo <- image_read(path = "other/BFW_Logo_180_x_200_transparent_background.png")
 school_symbol <- image_read_svg(path = "other/school_FILL0_wght400_GRAD0_opsz24.svg")
-```
-
-## Set boundaries and get basemap
-```{r basemap, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
-
-bbox <- st_bbox(st_buffer(cycle_boundary_poly, dist = 500))
-bbox <- c(left = as.double(bbox[1]),
-          bottom = as.double(bbox[2]),
-          right = as.double(bbox[3]),
-          top = as.double(bbox[4]))
-
-#get basemap
-basemap <- get_stadiamap(bbox = bbox, zoom = 15, maptype = "stamen_toner_lite")
 ```
 
 ## Generate map of addresses
