@@ -488,21 +488,15 @@ ggsave(file = paste0("figures/",
 cellsize <- 5e-3
 
 grid <- st_intersection(cycle_boundary_poly, st_make_grid(cycle_boundary_poly, cellsize = cellsize, what = "polygons", square = FALSE))
-
-ggmap(basemap) +
-  geom_sf(data = st_geometry(grid),
-          inherit.aes = FALSE,
-          fill = NA,
-          linewidth = 0.5)
 ```
 
-#### Compute Routes from Centroid to School
+#### Compute Routes from Cell Centroid to School
 
 ```{r sandbox2, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 grid_pts <- st_centroid(grid)
 grid_coods <- st_coordinates(grid_pts)
-routes <- list(NULL)
 
+routes <- list(NULL)
 for(i in 1:nrow(grid_coods) ) {
   query <- paste0(
     brouter_url,
@@ -518,24 +512,45 @@ for(i in 1:nrow(grid_coods) ) {
 }
 
 routes <- st_transform(bind_rows(routes), crs = 4326)
+```
+Notes:
+
+- What does `st_transform(bind_rows(routes), crs = 4326)` do?
+
+
+#### Generate Map for Total Time
+
+```{r sandbox3, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+track.length.vec <- routes %>% pull(track.length)
+grid <- cbind(grid, track.length = as.numeric(track.length.vec)/1609)
+
+total.time.vec <- routes %>% pull(total.time)
+grid <- cbind(grid, total.time = as.numeric(total.time.vec)/60)
+
+total.energy.vec <- routes %>% pull(total.energy)
+grid <- cbind(grid, total.energy = as.numeric(total.energy.vec))
 
 ggmap(basemap) +
-  geom_sf(data = st_geometry(routes),
-          inherit.aes = FALSE,
-          fill = NA,
-          linewidth = 0.5,
-          color = "red"
-          ) +
-      geom_sf(data = st_geometry(grid),
-          inherit.aes = FALSE,
-          fill = NA,
-          linewidth = 0.5)
+  geom_sf(data = grid,
+          aes(fill = total.time),
+          inherit.aes = FALSE
+          )
 ```
 
-#### Compute Route-Level Measures
+#### Available Route Data
 
-How do we retireve features of the route such as percentage on
-cycleway? My next step is to look over getLTSForRoute() for tips.
+```{r sandbox4, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+attributes(routes)$names
+```
+
+##### Message Data?
+
+What information can we pull out of the messages data?
+
+```{r sandbox5, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+routes[1,"messages"]
+```
+
 
 ```{r chunklast, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 date()
