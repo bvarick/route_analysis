@@ -31,7 +31,7 @@ library(jsonlite)
 library(parallel)
 fig.height <- 6
 set.seed(1)
-runTLS <- TRUE
+runLTS <- FALSE
 logo <- image_read(path = "other/BFW_Logo_180_x_200_transparent_background.png")
 school_symbol <- image_read_svg(path = "other/school_FILL0_wght400_GRAD0_opsz24.svg")
 ```
@@ -181,7 +181,7 @@ Notes:
 
 
 ## Combine routes with Bike LTS
-```{r ltscount, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+```{r ltscount, eval = runLTS, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 
 # Count the routes that intersect or overlap with each segment of the bike_tls network.
 # The intersections have a buffer of 10m
@@ -196,11 +196,11 @@ Notes:
 - for each segment in bike_lts, this counts how many student&rsquo;s
   calculated routes intersect with it (within a 10 m buffer)
 
-```{r functions, eval = runTLS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+```{r functions, eval = runLTS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 source("./R/functions.R")
 ```
 
-```{r routeslts, eval = runTLS, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+```{r routeslts, eval = runLTS, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 # Start with routes_lts as a NULL list
 routes_lts <- list(NULL)
 
@@ -228,7 +228,7 @@ Notes:
 
 ## Generate map with LTS data
 
-```{r maplts, eval = runTLS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+```{r maplts, eval = runLTS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 ggmap(basemap) +
   geom_sf(data = routes_lts %>% filter(student_number == 6), inherit.aes = FALSE,
           aes(color = route$lts,
@@ -347,7 +347,7 @@ ggsave(file = paste0("figures/",
 ```
 
 ## Generate map of routes with LTS (1)
-```{r maprouteslts, eval = runTLS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+```{r maprouteslts, eval = runLTS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 # generate map
 ggmap(basemap) +
   labs(title = paste0("Cycling routes for students at ",
@@ -400,7 +400,7 @@ ggsave(file = paste0("figures/",
 
 ## Generate map of routes with LTS (2)
 
-```{r mapaddresseslts, eval = runTLS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+```{r mapaddresseslts, eval = runLTS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 # generate map
 ggmap(basemap) +
   labs(title = paste0("Level of Traffic stress for biking for students at ",
@@ -453,6 +453,104 @@ ggsave(file = paste0("figures/",
 ```
 
 # Appendix
+
+## Notes
+
+### R Package sf
+
+- Simple features or simple feature access refers to a formal standard
+  (ISO 19125-1:2004) that describes how objects in the real world can
+  be represented in computers, with emphasis on the spatial geometry
+  of these objects. It also describes how such objects can be stored
+  in and retrieved from databases, and which geometrical operations
+  should be defined for them.
+- The standard is widely implemented in spatial databases (such as
+  PostGIS), commercial GIS (e.g., ESRI ArcGIS) and forms the vector
+  data basis for libraries such as GDAL. A subset of simple features
+  forms the GeoJSON standard.
+- R has well-supported classes for storing spatial data (sp) and
+  interfacing to the above mentioned environments (rgdal, rgeos), but
+  has so far lacked a complete implementation of simple features,
+  making conversions at times convoluted, inefficient or
+  incomplete. The package sf tries to fill this gap, and aims at
+  succeeding sp in the long term.
+- See source [here](https://r-spatial.github.io/sf/articles/sf1.html)
+- all functions and methods in sf that operate on spatial data are
+  prefixed by st_, which refers to spatial type; this makes them
+  easily findable by command-line completion.
+- Tessellation st_make_grid()
+
+### Sandbox
+
+#### Create a Grid Over Bikeable Area
+
+```{r sandbox1, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+cellsize <- 5e-3
+
+grid <- st_intersection(cycle_boundary_poly, st_make_grid(cycle_boundary_poly, cellsize = cellsize, what = "polygons", square = FALSE))
+```
+
+#### Compute Routes from Cell Centroid to School
+
+```{r sandbox2, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+grid_pts <- st_centroid(grid)
+grid_coods <- st_coordinates(grid_pts)
+
+routes <- list(NULL)
+for(i in 1:nrow(grid_coods) ) {
+  query <- paste0(
+    brouter_url,
+    "?lonlats=", grid_coods[i,1], ",",grid_coods[i,2], "|",
+    school_focus_location$LON, ",", school_focus_location$LAT,
+    "&profile=", brouter_profile,
+    "&alternativeidx=0&format=geojson"
+  )
+  response <- GET(query)
+  route_run <- st_read(content <- content(response, as = "text"), quiet = TRUE)
+  route_run[["student_number"]] <- i
+  routes[[i]] <- route_run
+}
+
+routes <- st_transform(bind_rows(routes), crs = 4326)
+```
+Notes:
+
+- What does `st_transform(bind_rows(routes), crs = 4326)` do?
+
+
+#### Generate Map for Total Time
+
+```{r sandbox3, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+track.length.vec <- routes %>% pull(track.length)
+grid <- cbind(grid, track.length = as.numeric(track.length.vec)/1609)
+
+total.time.vec <- routes %>% pull(total.time)
+grid <- cbind(grid, total.time = as.numeric(total.time.vec)/60)
+
+total.energy.vec <- routes %>% pull(total.energy)
+grid <- cbind(grid, total.energy = as.numeric(total.energy.vec))
+
+ggmap(basemap) +
+  geom_sf(data = grid,
+          aes(fill = total.time),
+          inherit.aes = FALSE
+          )
+```
+
+#### Available Route Data
+
+```{r sandbox4, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+attributes(routes)$names
+```
+
+##### Message Data?
+
+What information can we pull out of the messages data?
+
+```{r sandbox5, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+routes[1,"messages"]
+```
+
 
 ```{r chunklast, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 date()
