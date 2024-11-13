@@ -32,3 +32,50 @@ getLTSForRoute <- function(i) {
 
   return(result)
 }
+
+
+routeChar <- function(route){
+
+text <- as.data.frame(route)$messages
+text <- gsub(x = text, pattern = "\\\"", replacement = "")
+text <- gsub(x = text, pattern = "\ ", replacement = "")
+text <- gsub(x = text, pattern = "\\[\\[", replacement = "")
+text <- gsub(x = text, pattern = "\\]\\]", replacement = "")
+foobar <- strsplit(text, split = "],[", fixed = TRUE)
+x <- lapply(foobar, function(x){strsplit(x, split = ",", fixed = TRUE)})
+xx <- unlist(x)
+m <- matrix(xx, ncol = 13, byrow = TRUE)
+df <- data.frame(m[-1,])
+names(df) <- m[1,]
+
+
+df2 <- within(df, {
+    Time <- as.numeric(Time)
+    stageTime <- diff(c(0,Time))
+    path <- grepl("highway=path", df$WayTags)
+    residential <- grepl("highway=residential", df$WayTags)
+    footway <- grepl("highway=footway", df$WayTags)
+    primary <- grepl("highway=primary", df$WayTags)
+    service <- grepl("highway=service", df$WayTags)
+    cycleway <- grepl("highway=cycleway", df$WayTags)
+    bike <- grepl("bicycle=designated", df$WayTags)
+})
+
+
+foo <- function(x){
+    ifelse(x$path, "path", ifelse(x$residential, "residential", ifelse(x$footway, "footway", ifelse(x$primary, "primary", ifelse(x$service, "service", ifelse(x$cycleway, "cycleway", "other"))))))
+}
+
+df2 <- cbind(df2, highway = foo(df2))
+df2 <- df2 %>% group_by(highway) %>% summarize(T = sum(stageTime))
+
+df2 <- df2 %>% filter(!is.na(highway))
+
+
+    if(!("cycleway" %in% df2$highway)){
+        return(0)
+    }else{
+        return(df2[df2$highway == "cycleway",]$T)
+    }
+
+}
