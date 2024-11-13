@@ -93,7 +93,8 @@ saveRDS(cycle_boundary_poly, "./R/data/cycle_boundary_poly.rds")
 
 ```{r grid, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 cellsize <- 2.5e-3
-grid <- st_intersection(cycle_boundary_poly, st_make_grid(cycle_boundary_poly, cellsize = cellsize, what = "polygons", square = FALSE))
+grid <- st_make_grid(cycle_boundary_poly, cellsize = cellsize, what = "polygons", square = FALSE)
+grid <- st_intersection(cycle_boundary_poly, grid)
 ```
 
 # Compute Routes from Cell Centroids to School with brouter
@@ -136,10 +137,11 @@ bbox <- c(left = as.double(bbox[1]),
           right = as.double(bbox[3]),
           top = as.double(bbox[4]))
 
-basemap <- get_stadiamap(bbox = bbox, zoom = 15, maptype = "stamen_toner_lite")
+zoom.level <- 12
+basemap <- get_stadiamap(bbox = bbox, zoom = zoom.level, maptype = "stamen_toner_lite")
 ```
 
-## Route Characteristic Map
+## Total Trip Time Map
 
 ```{r sandbox3, eval = makePlots, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 track.length.vec <- routes %>% pull(track.length)
@@ -157,6 +159,7 @@ ggsave(gg1, filename = "./figures/route-characteristics.pdf", width = 11, height
 
 gg1
 ```
+
 ## Routes Map
 
 ```{r sandbox3b, eval = makePlots, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
@@ -167,7 +170,7 @@ gg2
 
 # Available Route Data
 
-## Investigatioin of Messages Data
+## Compute Percent of Trip on Cycleway
 
 ```{r sandbox4, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 x.vec <- c()
