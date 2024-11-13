@@ -92,7 +92,7 @@ saveRDS(cycle_boundary_poly, "./R/data/cycle_boundary_poly.rds")
 # Create Grid Over Bikeable Region
 
 ```{r grid, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
-cellsize <- 5e-3
+cellsize <- 2.5e-3
 grid <- st_intersection(cycle_boundary_poly, st_make_grid(cycle_boundary_poly, cellsize = cellsize, what = "polygons", square = FALSE))
 ```
 
@@ -146,12 +146,12 @@ track.length.vec <- routes %>% pull(track.length)
 grid <- cbind(grid, track.length = as.numeric(track.length.vec)/1609)
 
 total.time.vec <- routes %>% pull(total.time)
-grid <- cbind(grid, total.time = as.numeric(total.time.vec)/60)
+grid <- cbind(grid, total.time = as.numeric(total.time.vec))
 
 total.energy.vec <- routes %>% pull(total.energy)
 grid <- cbind(grid, total.energy = as.numeric(total.energy.vec))
 
-gg1 <- ggmap(basemap) + geom_sf(data = grid, aes(fill = total.time), inherit.aes = FALSE)
+gg1 <- ggmap(basemap) + geom_sf(data = subset(grid, track.length > 1), aes(fill = total.time), inherit.aes = FALSE)
 
 ggsave(gg1, filename = "./figures/route-characteristics.pdf", width = 11, height = 8, units = "in")
 
@@ -176,21 +176,15 @@ for(j in 1:nrow(routes)){
     x.vec <- c(x.vec, foobar)
 }
 
-new.df <- cbind(grid, T.cycleway = x.vec)
+grid <- cbind(grid, T.cycleway = x.vec)
+grid <- cbind( grid, pct.cycleway = 100*grid$T.cycleway/grid$total.time)
 
-gg3 <- ggmap(basemap) + geom_sf(data = new.df, aes(fill= T.cycleway/60), inherit.aes = FALSE)
-ggsave(gg3, filename = "./figures/routes.pdf", width = 11, height = 8, units = "in")
+gg3 <- ggmap(basemap) + geom_sf(data = subset(grid, track.length > 1), aes(fill= pct.cycleway), inherit.aes = FALSE)
+ggsave(gg3, filename = "./figures/cycleway.pdf", width = 11, height = 8, units = "in")
 gg3
 ```
 
-# Message Data?
-
-What information can we pull out of the messages data?
-
-```{r sandbox5, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
-routes[1,"messages"]
-```
-
+# Archive
 
 ```{r chunklast, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 date()
