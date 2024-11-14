@@ -1,7 +1,7 @@
-getLTSForRoute <- function(i) {
+getLTSForRoute <- function(i, route_table) {
 
   # Filter the routes for the current student number
-  current_route <- routes %>% filter(student_number == i)
+  current_route <- route_table %>% filter(student_number == i)
 
   # Find intersecting OBJECTIDs
   intersecting_ids <- relevant_buffer$OBJECTID[lengths(st_intersects(relevant_buffer, current_route)) > 0]
