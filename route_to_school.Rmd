@@ -15,7 +15,7 @@ editor_options:
 
 ## Libraries
 
-```{r libs, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+```{r libs, eval = TRUE, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 date()
 rm(list=ls())
 library(tidyverse)
@@ -31,7 +31,6 @@ library(jsonlite)
 library(parallel)
 fig.height <- 6
 set.seed(1)
-makePlots <- TRUE
 source("./R/functions.R")
 ```
 
@@ -40,14 +39,12 @@ source("./R/functions.R")
 ## Open Source Routing Machine (OSRM)
 
 ```{r osrm, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
-# Set url and profile of OSRM server
 options(osrm.server = "http://127.0.0.1:5001/")
 options(osrm.profile = "bike")
 ```
 
 ## Brouter options
 ```{r brouter, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
-# Set url and profile of brouter server
 brouter_url <- "http://127.0.0.1:17777/brouter"
 brouter_profile <- "safety"
 ```
@@ -71,7 +68,7 @@ school_focus <- data.frame(name = c("East High School"), NCES_CODE = c("55085200
 #school_focus <- data.frame(name = c("IMAP"), NCES_CODE = c("550008203085"))
 school_location <- WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE)
 
-radius <- 3 # miles
+radius <- 4 # miles
 levels <- c(1)
 res <- 100
 threshold <- units::set_units(1, km^2)
@@ -92,7 +89,7 @@ saveRDS(cycle_boundary_poly, "./R/data/cycle_boundary_poly.rds")
 # Create Grid Over Bikeable Region
 
 ```{r grid, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
-cellsize <- 2.5e-3
+cellsize <- 5e-3
 grid <- st_make_grid(cycle_boundary_poly, cellsize = cellsize, what = "polygons", square = FALSE)
 grid <- st_intersection(cycle_boundary_poly, grid)
 ```
@@ -130,7 +127,7 @@ Notes:
 # Generate Map for Total Time
 
 ## Set boundaries and get basemap
-```{r basemap, eval = makePlots, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+```{r basemap, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 bbox <- st_bbox(st_buffer(cycle_boundary_poly, dist = 500))
 bbox <- c(left = as.double(bbox[1]),
           bottom = as.double(bbox[2]),
@@ -143,7 +140,7 @@ basemap <- get_stadiamap(bbox = bbox, zoom = zoom.level, maptype = "stamen_toner
 
 ## Total Trip Time Map
 
-```{r sandbox3, eval = makePlots, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+```{r sandbox3, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 track.length.vec <- routes %>% pull(track.length)
 grid <- cbind(grid, track.length = as.numeric(track.length.vec)/1609)
 
@@ -162,13 +159,13 @@ gg1
 
 ## Routes Map
 
-```{r sandbox3b, eval = makePlots, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+```{r sandbox3b, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 gg2 <- ggmap(basemap) + geom_sf(data = routes, aes(color = "red"), inherit.aes = FALSE)
 ggsave(gg2, filename = "./figures/routes.pdf", width = 11, height = 8, units = "in")
 gg2
 ```
 
-# Available Route Data
+# Route Characteristics
 
 ## Compute Percent of Trip on Cycleway
 
@@ -180,9 +177,9 @@ for(j in 1:nrow(routes)){
 }
 
 grid <- cbind(grid, T.cycleway = x.vec)
-grid <- cbind( grid, pct.cycleway = 100*grid$T.cycleway/grid$total.time)
+grid <- cbind( grid, not.cycleway = (grid$total.time - grid$T.cycleway)/60)
 
-gg3 <- ggmap(basemap) + geom_sf(data = subset(grid, track.length > 1), aes(fill= pct.cycleway), inherit.aes = FALSE)
+gg3 <- ggmap(basemap) + geom_sf(data = grid, aes(fill= not.cycleway), inherit.aes = FALSE) + scale_fill_gradient(low = "yellow", high = "red", limits = c(0,17), na.value = NA)
 ggsave(gg3, filename = "./figures/cycleway.pdf", width = 11, height = 8, units = "in")
 gg3
 ```
