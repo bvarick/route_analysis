@@ -48,7 +48,9 @@ WI_schools <- WI_schools %>% mutate(geom = SHAPE)
 ```{r addresses, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 addresses <- read_csv(file="data/addresses/Addresses_Students_EastHS_2024_GeocodeResults.csv") %>%
   filter(lat > 0) %>%
-  st_as_sf(coords=c("lon","lat"), crs=4326)
+  st_as_sf(coords=c("lon","lat"), 
+           crs=4326,
+           remove = FALSE)
 ```
 (Remember that x = lon and y = lat.)
 
@@ -84,7 +86,6 @@ options(osrm.profile = "bike")
 ```{r brouter, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 # Set url and profile of brouter server
 brouter_url <- "http://127.0.0.1:17777/brouter"
-brouter_profile <- "safety"
 ```
 
 ## Stadia Maps API Key
@@ -137,14 +138,17 @@ square grid, the total number of points will be res*res. Increase res to obtain 
 ## Calculate Routes
 
 ```{r routes, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
-routes <- list(NULL)
 school_focus_location <- WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% select(LAT, LON)
+
+#calculate routes with the safety profile
+brouter_profile <- "safety"
+routes_safety <- list(NULL)
 for(i in addresses_near %>% arrange(number) %>% pull(number)) {
   query <- paste0(
     brouter_url,
     "?lonlats=",
-    (addresses_near %>% filter(number == i) %>% pull(point) %>% str_split(., ","))[[1]][1], ",",
-    (addresses_near %>% filter(number == i) %>% pull(point) %>% str_split(., ","))[[1]][2], "|",
+    addresses_near %>% filter(number == i) %>% pull(lon), ",",
+    addresses_near %>% filter(number == i) %>% pull(lat), "|",
     school_focus_location$LON, ",", school_focus_location$LAT,
     "&profile=", brouter_profile,
     "&alternativeidx=0&format=geojson"
@@ -152,44 +156,69 @@ for(i in addresses_near %>% arrange(number) %>% pull(number)) {
   response <- GET(query)
   route_run <- st_read(content <- content(response, as = "text"), quiet = TRUE)
   route_run[["student_number"]] <- i
-  routes[[i]] <- route_run
+  routes_safety[[i]] <- route_run
 
 
   message(paste0("done - ", i, " of ", max(addresses_near$number)))
 }
+# combine the list of routes into a data table and make sure its the right crs
+routes_safety <- st_transform(bind_rows(routes_safety), crs = 4326)
 
-routes <- st_transform(bind_rows(routes), crs = 4326)
+# calculate routes with the "shortest" profile
+brouter_profile <- "shortest"
+routes_shortest <- list(NULL)
+for(i in addresses_near %>% arrange(number) %>% pull(number)) {
+  query <- paste0(
+    brouter_url,
+    "?lonlats=",
+    addresses_near %>% filter(number == i) %>% pull(lon), ",",
+    addresses_near %>% filter(number == i) %>% pull(lat), "|",
+    school_focus_location$LON, ",", school_focus_location$LAT,
+    "&profile=", brouter_profile,
+    "&alternativeidx=0&format=geojson"
+  )
+  response <- GET(query)
+  route_run <- st_read(content <- content(response, as = "text"), quiet = TRUE)
+  route_run[["student_number"]] <- i
+  routes_shortest[[i]] <- route_run
+
+
+  message(paste0("done - ", i, " of ", max(addresses_near$number)))
+}
+# combine the list of routes into a data table and make sure its the right crs
+routes_shortest <- st_transform(bind_rows(routes_shortest), crs = 4326)
+
+routes <- bind_rows(routes_safety, routes_shortest) %>%
+  mutate(total.time = as.double(total.time),
+         total.energy = as.double(total.energy),
+         track.length = as.double(track.length))
 ```
 
 Notes:
 - this queries the brouter server to get routes
 
-## Set boundaries and get basemap
-```{r basemap, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
-
-bbox <- st_bbox(st_buffer(cycle_boundary_poly, dist = 500))
-bbox <- c(left = as.double(bbox[1]),
-          bottom = as.double(bbox[2]),
-          right = as.double(bbox[3]),
-          top = as.double(bbox[4]))
-
-#get basemap
-basemap <- get_stadiamap(bbox = bbox, zoom = 15, maptype = "stamen_toner_lite")
+## plot efficiency loss
+```{r plotefficiency, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+ggplot(data = as.data.frame(routes) %>% 
+         select(student_number, name, track.length) %>% 
+         pivot_wider(names_from = name, values_from = track.length) %>%
+         mutate(difference_percent = ((brouter_safety_0/brouter_shortest_0) - 1) * 100)) +
+  geom_point(aes(x = brouter_shortest_0 / 1609, y = difference_percent)) +
+  labs(x = "distance for shortest route",
+       y = "Percent difference between safest and shortest routes")
 ```
-Notes:
-- This chunk retrieves the base map from Stadia Maps (API key required)
 
 
 ## Combine routes with Bike LTS
 ```{r ltscount, eval = runLTS, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
 
 # Count the routes that intersect or overlap with each segment of the bike_tls network.
-# The intersections have a buffer of 10m
+# The intersections have a buffer of 10 m
 bike_lts_buffer <- st_buffer(st_intersection(bike_lts, cycle_boundary_poly), 10)
 
-bike_lts_buffer["student_use"] <- unlist(lapply(st_intersects(bike_lts_buffer, routes), length))
+bike_lts_buffer["student_use"] <- unlist(lapply(st_intersects(bike_lts_buffer, routes_safety), length))
 
-bike_lts <- left_join(bike_lts, as.data.frame(bike_lts_buffer %>% select(OBJECTID, student_use)), by = "OBJECTID")
+bike_lts_studentuse <- left_join(bike_lts, as.data.frame(bike_lts_buffer) %>% select(OBJECTID, student_use), by = "OBJECTID") %>% filter(student_use > 0)
 ```
 
 Notes:
@@ -209,6 +238,7 @@ relevant_buffer <- bike_lts_buffer %>% filter(student_use > 0)
 
 routes_lts <- mclapply(addresses_near %>% arrange(number) %>% pull(number),
                        getLTSForRoute,
+                       route_table = routes_safety,
                        mc.cores = detectCores() / 2,
                        mc.cleanup = TRUE,
                        mc.preschedule = TRUE,
@@ -219,24 +249,12 @@ routes_lts <- bind_rows(routes_lts)
 Notes:
 - for each student's route, this finds which bike_lts segment it
   intersects with and calculates a max and an average level of traffic
-  stress (LTS). This takes a while, so a parallelized it. There's
+  stress (LTS). This takes a while, so it runs in parallel. There's
   probably a more efficient way to do this calculation.
-- see ./R/functions.R for defintion of getLTSForRoute()
+- see ./R/functions.R for definition of getLTSForRoute()
 
-
-# Make Maps
-
-## Generate map with LTS data
-
-```{r maplts, eval = runLTS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
-ggmap(basemap) +
-  geom_sf(data = routes_lts %>% filter(student_number == 6), inherit.aes = FALSE,
-          aes(color = route$lts,
-              geometry = route$geometry),
-          linewidth = 2)  +
-  scale_color_manual(values = bike_lts_scale$color, name = "Bike Level of Traffic Stress")
-
-# Join the data with the addresses data
+```{r addresslts, eval = runLTS, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+# Join the route lts data with the addresses data
 addresses_near <- left_join(addresses_near,
                             routes_lts %>%
                               select(c("student_number", "lts_max", "lts_average", "lts_1_dist", "lts_2_dist", "lts_3_dist", "lts_4_dist")),
@@ -246,6 +264,23 @@ addresses_near <- left_join(addresses_near,
 # add supplemental analysis
 addresses_near <- addresses_near %>% mutate(lts_34_dist = lts_3_dist + lts_4_dist)
 ```
+
+# Make Maps
+
+## Set boundaries and get basemap
+```{r basemap, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+
+bbox <- st_bbox(st_buffer(cycle_boundary_poly, dist = 500))
+bbox <- c(left = as.double(bbox[1]),
+          bottom = as.double(bbox[2]),
+          right = as.double(bbox[3]),
+          top = as.double(bbox[4]))
+
+#get basemap
+basemap <- get_stadiamap(bbox = bbox, zoom = 15, maptype = "stamen_toner_lite")
+```
+Notes:
+- This chunk retrieves the base map from Stadia Maps (API key required)
 
 ## Generate map of addresses
 ```{r mapaddresses, eval = TRUE, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
@@ -301,7 +336,7 @@ ggsave(file = paste0("figures/",
 ggmap(basemap) +
   labs(title = paste0("Cycling routes for students at ",
     school_focus %>% pull(name)),
-    subtitle = paste0("only showing routes within the ", radius, " mile cycling boundary"),
+    subtitle = paste0("only showing the safest routes for students within the ", radius, " mile cycling boundary"),
     x = NULL,
     y = NULL,
     color = NULL,
@@ -316,7 +351,7 @@ ggmap(basemap) +
           linewidth = 1) +
   scale_color_manual(values = "blue", name = NULL) +
   new_scale_color() +
-  geom_sf(data = bike_lts %>% filter(!is.na(student_use), student_use > 3),
+  geom_sf(data = bike_lts_studentuse %>% filter(!is.na(student_use), student_use > 3),
           inherit.aes = FALSE,
           aes(linewidth = student_use),
           color = "mediumvioletred",
@@ -367,7 +402,7 @@ ggmap(basemap) +
           linewidth = 1) +
   scale_color_manual(values = "blue", name = NULL) +
   new_scale_color() +
-  geom_sf(data = bike_lts %>% filter(!is.na(student_use), student_use > 0),
+  geom_sf(data = bike_lts_studentuse %>% filter(!is.na(student_use), student_use > 0),
          inherit.aes = FALSE,
          aes(color = lts,
              linewidth = student_use)) +
@@ -407,7 +442,8 @@ ggmap(basemap) +
                       school_focus %>% pull(name)),
        subtitle = "only showing routes within the cycling boundary",
        x = NULL,
-       y = NULL) +
+       y = NULL,
+       linewidth = "Potential student cyclists") +
   theme(axis.text=element_blank(),
         axis.ticks=element_blank(),
         plot.caption = element_text(color = "grey")) +
@@ -418,7 +454,7 @@ ggmap(basemap) +
           linewidth = 1) +
   scale_color_manual(values = "blue", name = NULL) +
   new_scale_color() +
-  geom_sf(data = routes_lts %>% filter(route$student_use >= 4),
+  geom_sf(data = routes_lts %>% filter(route$student_use >= 3),
          inherit.aes = FALSE,
          aes(geometry = route$geometry,
              color = route$lts,
