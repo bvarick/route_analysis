@@ -67,7 +67,7 @@ gridList <- list()
 routesList <- list()
 
 indexVec <- 1:nrow(WI_schools)
-#indexVec <- 1:50
+
 jj <- 1;
 bad.school.vec <- c()
 
@@ -131,7 +131,9 @@ for(j in indexVec){
 
 }
 
-WI_schools <- WI_schools[-bad.school.vec,]
+if(length(bad.school.vec) > 0){
+    WI_schools <- WI_schools[-bad.school.vec,]
+}
 
 saveRDS(WI_schools, "./R/data/WI_schools.rds")
 saveRDS(gridList, "./R/data/gridList.rds")
