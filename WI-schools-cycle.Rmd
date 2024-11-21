@@ -32,7 +32,7 @@ library(parallel)
 fig.height <- 6
 set.seed(1)
 source("./R/functions.R")
-runLoop <- TRUE
+runLoop <- FALSE
 ```
 
 ## Configuration
@@ -140,9 +140,12 @@ saveRDS(gridList, "./R/data/gridList.rds")
 saveRDS(routesList, "./R/data/routesList.rds")
 ```
 
-```{r showLists, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+## Read List Data
+
+```{r readLists, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 routesList <- readRDS(file = "./R/data/routesList.rds")
 gridList <- readRDS(file = "./R/data/gridList.rds")
+WI_schools <- readRDS(file = "./R/data/WI_schools.rds")
 
 not.cycleway.vec <- c()
 
@@ -168,8 +171,58 @@ for(j in 1:length(gridList)){
     not.cycleway.vec <- c(not.cycleway.vec, median(grid$not.cycleway))
 
 }
+```
 
+## Plot List Data
+
+### Best & Worst Schools
+
+```{r plots, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 ggplot(data.frame(not.cycleway = not.cycleway.vec), aes(not.cycleway)) + geom_histogram(fill = "grey", color = "black") + theme_bw()
+
+register_stadiamaps(key = substr(read_file(file = "api_keys/stadia_api_key"), 1, 36))
+
+zoom.level <- 15
+k <- 306 #247
+
+bbox <- st_bbox(st_buffer(gridList[[k]], dist = 500))
+bbox <- c(left = as.double(bbox[1]),
+          bottom = as.double(bbox[2]),
+          right = as.double(bbox[3]),
+          top = as.double(bbox[4]))
+basemap <- get_stadiamap(bbox = bbox, zoom = zoom.level, maptype = "stamen_toner_lite")
+
+ggmap(basemap) + geom_sf(data = gridList[[k]], aes(fill= not.cycleway), inherit.aes = FALSE) + scale_fill_gradient(low = "yellow", high = "red", limits = c(0,17), na.value = NA)
+
+k <- 247 #306
+
+bbox <- st_bbox(st_buffer(gridList[[k]], dist = 500))
+bbox <- c(left = as.double(bbox[1]),
+          bottom = as.double(bbox[2]),
+          right = as.double(bbox[3]),
+          top = as.double(bbox[4]))
+basemap <- get_stadiamap(bbox = bbox, zoom = zoom.level, maptype = "stamen_toner_lite")
+
+ggmap(basemap) + geom_sf(data = gridList[[k]], aes(fill= not.cycleway), inherit.aes = FALSE) + scale_fill_gradient(low = "yellow", high = "red", limits = c(0,17), na.value = NA)
+```
+
+### Statewide Map
+
+```{r plots2, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+
+D <- cbind(WI_schools, not.cycleway.vec)
+
+zoom.level <- 8
+
+bbox <- st_bbox(st_buffer(D, dist = 10e3))
+bbox <- c(left = as.double(bbox[1]),
+          bottom = as.double(bbox[2]),
+          right = as.double(bbox[3]),
+          top = as.double(bbox[4]))
+basemap <- get_stadiamap(bbox = bbox, zoom = zoom.level, maptype = "stamen_toner_lite")
+
+ggmap(basemap) + geom_sf(data = D, aes(size = 2, color = not.cycleway.vec), inherit.aes = FALSE) + scale_color_gradient(low = "yellow", high = "red", na.value = NA) # , limits = c(0,17)
+
 ```
 
 # Archive
