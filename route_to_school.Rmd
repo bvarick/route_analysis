@@ -1,0 +1,192 @@
+---
+title: "East High Cycling Routes"
+output:
+  html_document:
+    toc: true
+    toc_depth: 5
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+editor_options:
+  chunk_output_type: console
+---
+
+# Input Data & Configuration
+
+## Libraries
+
+```{r libs, eval = TRUE, echo = FALSE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+date()
+rm(list=ls())
+library(tidyverse)
+library(ggmap)
+library(sf)
+library(osrm)
+library(smoothr)
+library(magick)
+library(ggnewscale)
+library(rsvg)
+library(httr)
+library(jsonlite)
+library(parallel)
+fig.height <- 6
+set.seed(1)
+source("./R/functions.R")
+```
+
+# External sources configurations
+
+## Open Source Routing Machine (OSRM)
+
+```{r osrm, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+options(osrm.server = "http://127.0.0.1:5001/")
+options(osrm.profile = "bike")
+```
+
+## Brouter options
+```{r brouter, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+brouter_url <- "http://127.0.0.1:17777/brouter"
+brouter_profile <- "safety"
+```
+
+## Stadia Maps API Key
+
+```{r stadiamaps, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+register_stadiamaps(key = substr(read_file(file = "api_keys/stadia_api_key"), 1, 36))
+```
+
+
+# Analysis
+
+## Create Bikeable Region Using OSRM
+
+```{r boundary, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+WI_schools <- st_transform(st_read(dsn = "data/Schools/Wisconsin_Public_Schools_-5986231931870160084.gpkg"), crs = 4326)
+WI_schools <- WI_schools %>% mutate(geom = SHAPE)
+
+school_focus <- data.frame(name = c("East High School"), NCES_CODE = c("550852000925"))
+#school_focus <- data.frame(name = c("IMAP"), NCES_CODE = c("550008203085"))
+school_location <- WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE)
+
+radius <- 4 # miles
+levels <- c(1)
+res <- 100
+threshold <- units::set_units(1, km^2)
+
+cycle_boundary_m <- radius*1609
+
+cycle_boundary_poly <- osrmIsodistance( loc = school_location, breaks = cycle_boundary_m, res = res )
+
+cycle_boundary_poly <- st_make_valid(cycle_boundary_poly)
+
+cycle_boundary_poly <- fill_holes(cycle_boundary_poly, threshold)
+
+cycle_boundary_poly <- st_transform(cycle_boundary_poly, crs = 4326)
+
+saveRDS(cycle_boundary_poly, "./R/data/cycle_boundary_poly.rds")
+```
+
+# Create Grid Over Bikeable Region
+
+```{r grid, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+cellsize <- 5e-3
+grid <- st_make_grid(cycle_boundary_poly, cellsize = cellsize, what = "polygons", square = FALSE)
+grid <- st_intersection(cycle_boundary_poly, grid)
+```
+
+# Compute Routes from Cell Centroids to School with brouter
+
+```{r routes, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+grid_pts <- st_centroid(grid)
+grid_coods <- st_coordinates(grid_pts)
+school_focus_location <- WI_schools %>% filter(NCES_CODE %in% school_focus$NCES_CODE) %>% select(LAT, LON)
+
+routes <- list(NULL)
+for(i in 1:nrow(grid_coods) ) {
+  query <- paste0(
+    brouter_url,
+    "?lonlats=", grid_coods[i,1], ",",grid_coods[i,2], "|",
+    school_focus_location$LON, ",", school_focus_location$LAT,
+    "&profile=", brouter_profile,
+    "&alternativeidx=0&format=geojson"
+  )
+  response <- GET(query)
+  route_run <- st_read(content <- content(response, as = "text"), quiet = TRUE)
+  route_run[["student_number"]] <- i
+  routes[[i]] <- route_run
+}
+
+routes <- st_transform(bind_rows(routes), crs = 4326)
+```
+
+Notes:
+
+- What does `st_transform(bind_rows(routes), crs = 4326)` do?
+
+
+# Generate Map for Total Time
+
+## Set boundaries and get basemap
+```{r basemap, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE}
+bbox <- st_bbox(st_buffer(cycle_boundary_poly, dist = 500))
+bbox <- c(left = as.double(bbox[1]),
+          bottom = as.double(bbox[2]),
+          right = as.double(bbox[3]),
+          top = as.double(bbox[4]))
+
+zoom.level <- 12
+basemap <- get_stadiamap(bbox = bbox, zoom = zoom.level, maptype = "stamen_toner_lite")
+```
+
+## Total Trip Time Map
+
+```{r sandbox3, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+track.length.vec <- routes %>% pull(track.length)
+grid <- cbind(grid, track.length = as.numeric(track.length.vec)/1609)
+
+total.time.vec <- routes %>% pull(total.time)
+grid <- cbind(grid, total.time = as.numeric(total.time.vec))
+
+total.energy.vec <- routes %>% pull(total.energy)
+grid <- cbind(grid, total.energy = as.numeric(total.energy.vec))
+
+gg1 <- ggmap(basemap) + geom_sf(data = subset(grid, track.length > 1), aes(fill = total.time), inherit.aes = FALSE)
+
+ggsave(gg1, filename = "./figures/route-characteristics.pdf", width = 11, height = 8, units = "in")
+
+gg1
+```
+
+## Routes Map
+
+```{r sandbox3b, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+gg2 <- ggmap(basemap) + geom_sf(data = routes, aes(color = "red"), inherit.aes = FALSE)
+ggsave(gg2, filename = "./figures/routes.pdf", width = 11, height = 8, units = "in")
+gg2
+```
+
+# Route Characteristics
+
+## Compute Percent of Trip on Cycleway
+
+```{r sandbox4, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+x.vec <- c()
+for(j in 1:nrow(routes)){
+    foobar <- routeChar(routes[j, "messages"])
+    x.vec <- c(x.vec, foobar)
+}
+
+grid <- cbind(grid, T.cycleway = x.vec)
+grid <- cbind( grid, not.cycleway = (grid$total.time - grid$T.cycleway)/60)
+
+gg3 <- ggmap(basemap) + geom_sf(data = grid, aes(fill= not.cycleway), inherit.aes = FALSE) + scale_fill_gradient(low = "yellow", high = "red", limits = c(0,17), na.value = NA)
+ggsave(gg3, filename = "./figures/cycleway.pdf", width = 11, height = 8, units = "in")
+gg3
+```
+
+# Archive
+
+```{r chunklast, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+date()
+sessionInfo()
+```
