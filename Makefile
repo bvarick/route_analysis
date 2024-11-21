@@ -2,7 +2,7 @@ all: data containers cycle
 
 data: osrm-data brouter-data
 containers: osrm-container brouter-container
-cycle: route_to_school
+cycle: WI-schools-cycle
 
 walk: route_analysis.Rmd
 	R -e 'library("rmarkdown"); old_path <- Sys.getenv("PATH"); Sys.setenv(PATH = paste(old_path, "/usr/local/bin", sep = ":")); rmarkdown::render(knit_root_dir = "./", output_dir = "./html", input = "./route_analysis.Rmd", output_file = "./html/route_analysis.html")'
@@ -15,6 +15,9 @@ cycle_brouter: cycling_route_analysis_brouter.Rmd
 
 route_to_school: route_to_school.Rmd
 	R -e 'library("rmarkdown"); old_path <- Sys.getenv("PATH"); Sys.setenv(PATH = paste(old_path, "/usr/local/bin", sep = ":")); rmarkdown::render(knit_root_dir = "./", output_dir = "./html", input = "./route_to_school.Rmd", output_file = "./html/route_to_school.html")'
+
+WI-schools-cycle: WI-schools-cycle.Rmd
+	R -e 'library("rmarkdown"); old_path <- Sys.getenv("PATH"); Sys.setenv(PATH = paste(old_path, "/usr/local/bin", sep = ":")); rmarkdown::render(knit_root_dir = "./", output_dir = "./html", input = "./WI-schools-cycle.Rmd", output_file = "./html/WI-schools-cycle.html")'
 
 osrm-container: ./docker/osrm/docker-compose.yml
 	cd ./docker/osrm/; docker compose up -d
