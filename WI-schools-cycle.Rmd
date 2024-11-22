@@ -22,13 +22,14 @@ library(tidyverse)
 library(ggmap)
 library(sf)
 library(osrm)
-library(smoothr)
-library(magick)
-library(ggnewscale)
-library(rsvg)
-library(httr)
-library(jsonlite)
-library(parallel)
+## library(smoothr)
+## library(magick)
+## library(ggnewscale)
+## library(rsvg)
+## library(httr)
+## library(jsonlite)
+## library(parallel)
+library(reactable)
 fig.height <- 6
 set.seed(1)
 source("./R/functions.R")
@@ -37,13 +38,13 @@ runLoop <- FALSE
 
 ## Configuration
 
-```{r config, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+```{r config, eval = TRUE, echo = FALSE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 options(osrm.server = "http://127.0.0.1:5001/")
 options(osrm.profile = "bike")
 brouter_url <- "http://127.0.0.1:17777/brouter"
 brouter_profile <- "safety"
 register_stadiamaps(key = substr(read_file(file = "api_keys/stadia_api_key"), 1, 36))
-WI_schools <- st_transform(st_read(dsn = "data/Schools/Wisconsin_Public_Schools_-5986231931870160084.gpkg"), crs = 4326)
+WI_schools <- st_transform(st_read(dsn = "data/Schools/Wisconsin_Public_Schools_-5986231931870160084.gpkg", quiet = TRUE), crs = 4326)
 WI_schools <- WI_schools %>% mutate(geom = SHAPE)
 ```
 
@@ -142,7 +143,7 @@ saveRDS(routesList, "./R/data/routesList.rds")
 
 ## Read List Data
 
-```{r readLists, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+```{r readLists, eval = TRUE, echo = FALSE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 routesList <- readRDS(file = "./R/data/routesList.rds")
 gridList <- readRDS(file = "./R/data/gridList.rds")
 WI_schools <- readRDS(file = "./R/data/WI_schools.rds")
@@ -175,26 +176,22 @@ for(j in 1:length(gridList)){
 
 ## Plot List Data
 
-### Best & Worst Schools
+### Shortest and Longest Median Non-Cycleway Duration
 
-```{r plots, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+First we take a look at the schools with the shortest and longest
+median time on cycleway.
+
+#### Longest
+
+
+
+```{r worst, eval = TRUE, echo = FALSE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 ggplot(data.frame(not.cycleway = not.cycleway.vec), aes(not.cycleway)) + geom_histogram(fill = "grey", color = "black") + theme_bw()
 
 register_stadiamaps(key = substr(read_file(file = "api_keys/stadia_api_key"), 1, 36))
-
+k <- 306
 zoom.level <- 15
-k <- 306 #247
 
-bbox <- st_bbox(st_buffer(gridList[[k]], dist = 500))
-bbox <- c(left = as.double(bbox[1]),
-          bottom = as.double(bbox[2]),
-          right = as.double(bbox[3]),
-          top = as.double(bbox[4]))
-basemap <- get_stadiamap(bbox = bbox, zoom = zoom.level, maptype = "stamen_toner_lite")
-
-ggmap(basemap) + geom_sf(data = gridList[[k]], aes(fill= not.cycleway), inherit.aes = FALSE) + scale_fill_gradient(low = "yellow", high = "red", limits = c(0,17), na.value = NA)
-
-k <- 247 #306
 
 bbox <- st_bbox(st_buffer(gridList[[k]], dist = 500))
 bbox <- c(left = as.double(bbox[1]),
@@ -206,9 +203,28 @@ basemap <- get_stadiamap(bbox = bbox, zoom = zoom.level, maptype = "stamen_toner
 ggmap(basemap) + geom_sf(data = gridList[[k]], aes(fill= not.cycleway), inherit.aes = FALSE) + scale_fill_gradient(low = "yellow", high = "red", limits = c(0,17), na.value = NA)
 ```
 
+The longest is `r WI_schools[k,] |> pull(SCHOOL)`.
+
+#### Shortest
+
+```{r best, eval = TRUE, echo = FALSE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+k <- 247
+
+bbox <- st_bbox(st_buffer(gridList[[k]], dist = 500))
+bbox <- c(left = as.double(bbox[1]),
+          bottom = as.double(bbox[2]),
+          right = as.double(bbox[3]),
+          top = as.double(bbox[4]))
+basemap <- get_stadiamap(bbox = bbox, zoom = zoom.level, maptype = "stamen_toner_lite")
+
+ggmap(basemap) + geom_sf(data = gridList[[k]], aes(fill= not.cycleway), inherit.aes = FALSE) + scale_fill_gradient(low = "yellow", high = "red", limits = c(0,17), na.value = NA)
+```
+
+The shortest is `r WI_schools[k,] |> pull(SCHOOL)`.
+
 ### Statewide Map
 
-```{r plots2, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+```{r plots2, eval = TRUE, echo = FALSE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 
 D <- cbind(WI_schools, not.cycleway.vec)
 
@@ -225,9 +241,18 @@ ggmap(basemap) + geom_sf(data = D, aes(size = 2, color = not.cycleway.vec), inhe
 
 ```
 
+### Statewide Table
+
+```{r table, eval = TRUE, echo = FALSE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+D_table <- as.data.frame(cbind(WI_schools, not.cycleway.vec))
+D <- select(D_table, SCHOOL, COUNTY, NONCYCLEWAY = not.cycleway.vec)
+D <- D |> mutate(NONCYCLEWAY = round(NONCYCLEWAY,1))
+reactable(D)
+```
+
 # Archive
 
-```{r chunklast, eval = TRUE, echo = TRUE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
+```{r chunklast, eval = TRUE, echo = FALSE, results = "show", warning = TRUE, error = TRUE, message = TRUE}
 date()
 sessionInfo()
 ```
