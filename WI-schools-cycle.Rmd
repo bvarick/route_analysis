@@ -26,6 +26,8 @@ library(ggmap)
 library(sf)
 library(osrm)
 library(reactable)
+library(smoothr)
+library(httr)
 fig.height <- 6
 set.seed(1)
 source("./R/functions.R")
@@ -118,27 +120,27 @@ for(j in indexVec){
         )
         response <- GET(query)
 
-        if( response$status_code == "200" ){
+        if( response$status_code == "200" ) {
             route_run <- st_read(content <- content(response, as = "text"), quiet = TRUE)
             routes[[i]] <- route_run
-        }else{
+        } else {
             routes[[i]] <- NA
         }
     }
 
     bad.cell <- which(is.na(routes))
 
-    if(length(bad.cell) > 0){
+    if(length(bad.cell) > 0) {
         routes <- routes[-bad.cell]
         grid <- grid[-bad.cell,]
     }
 
-    if(length(routes) > 0){
+    if(length(routes) > 0) {
         routes <- st_transform(bind_rows(routes), crs = 4326)
         gridList[[jj]] <- grid
         routesList[[jj]] <- routes
         jj <- jj + 1
-    }else{
+    } else {
         routes <- NA
         bad.school.vec <- c(j, bad.school.vec)
         cat( WI_schools$SCHOOL[j], "has zero routes to school and has been removed from analysis.\n")
@@ -146,7 +148,7 @@ for(j in indexVec){
 
 }
 
-if(length(bad.school.vec) > 0){
+if(length(bad.school.vec) > 0) {
     WI_schools <- WI_schools[-bad.school.vec,]
 }
 
