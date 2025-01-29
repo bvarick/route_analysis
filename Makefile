@@ -43,3 +43,9 @@ brouter-data:
 	cd ./docker/brouter/brouter-web; cp keys.template.js keys.js;
 	cd ./docker/brouter/brouter-web; cp config.template.js config.js
 	cd ./docker/brouter; docker compose build
+
+osm_edit_import_pbf:
+	cd ./docker/osm_edit/; wget https://download.geofabrik.de/north-america/us/wisconsin-latest.osm.pbf -O ./osm-data/wisconsin-latest.osm.pbf
+	cd ./docker/osm_edit/; rm -rf ./docker-osmosis; git clone https://github.com/bvarick/docker-osmosis.git
+	cd ./docker/osm_edit/; docker build -t osmosis ./docker-osmosis
+	cd ./docker/osm_edit/; docker run -v ./osm-data:/osm-data osmosis osmosis --read-pbf "/osm-data/wisconsin-latest.osm.pbf" --write-xml file="/osm-data/wisconsin-latest.osm"
