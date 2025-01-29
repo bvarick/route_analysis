@@ -46,6 +46,8 @@ brouter-data:
 
 osm_edit_import_pbf:
 	cd ./docker/osm_edit/; wget https://download.geofabrik.de/north-america/us/wisconsin-latest.osm.pbf -O ./osm-data/wisconsin-latest.osm.pbf
-	cd ./docker/osm_edit/; rm -rf ./docker-osmosis; git clone https://github.com/bvarick/docker-osmosis.git
-	cd ./docker/osm_edit/; docker build -t osmosis ./docker-osmosis
-	cd ./docker/osm_edit/; docker run -v ./osm-data:/osm-data osmosis osmosis --read-pbf "/osm-data/wisconsin-latest.osm.pbf" --write-xml file="/osm-data/wisconsin-latest.osm"
+	cd ./docker/osm_edit/; rm ./osm-data/wisconsin-latest.osm; docker run -v ./osm-data:/osm-data ghcr.io/bvarick/osmosis:0.49.2 osmosis --read-pbf "/osm-data/wisconsin-latest.osm.pbf" --write-xml file="/osm-data/wisconsin-latest.osm"
+
+osm_edit_create_pbfs:
+	docker run -v ./data/osm/osm_edit:/osm_edit ghcr.io/bvarick/osmium-tool:2.21.0 osmium cat /osm_edit/map.osm -o /osm_edit/map.osm.pbf
+	docker run -v ./data/osm/osm_edit:/osm_edit ghcr.io/bvarick/osmium-tool:2.21.0 osmium cat /osm_edit/map_edited.osm -o /osm_edit/map_edited.osm.pbf

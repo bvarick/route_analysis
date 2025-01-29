@@ -34,6 +34,15 @@ calculates the walking routes using OSRM.
 - `make cycle-osrm` will run *cycling_route_analysis.Rmd* which calculates the biking routes using OSRM.
 - `make cycle-brouter` will run *cycling_route_analysis_brouter.Rmd* which calculates the biking routes using brouter.
 
+## What-if analysis
+This allows you to make changes to the street network (add a bike path, reduce a lane on an arterial st) and see how it affects the routes that brouter chooses.
+This is a multi-step process:
+1. Download a chunk of OpenStreetMap data: https://www.openstreetmap.org/export
+2. Make edits to that file in [JOSM](https://josm.openstreetmap.de/)
+3. Save the edited file as `map_edited.osm`, save both `map.osm` and `map_edited.osm` in `data/osm/osm_edit/`
+4. `make osm_edit_create_pbfs` will generate two files `map.osm.pbf` and `map_edited.osm.pbf` in `docker/osm_edit/osm-data`
+5.
+
 ## Misc.
 - [Bike Level of Traffic Stress (LTS)](https://www.dvrpc.org/webmaps/bike-lts/analysis/)
 
