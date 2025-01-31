@@ -11,7 +11,7 @@ BROUTER_PROFILES="/profiles2"
 
 BROUTER_JAR="/brouter.jar"
 
-PLANET_FILE="/osm_edit/wisconsin-latest_edited.osm.pbf"
+PLANET_FILE="/osm_edit/pbf_files/wisconsin-latest_edited.osm.pbf"
 
 SRTM_PATH="/osm_edit/srtm"
 
@@ -41,9 +41,7 @@ ${JAVA} -cp ${BROUTER_JAR} -Ddeletetmpfiles=true -DuseDenseMaps=true btools.mapc
 mkdir segments
 ${JAVA} -cp ${BROUTER_JAR} -DuseDenseMaps=true btools.mapcreator.WayLinker unodes55 waytiles55 bordernodes.dat restrictions.dat ${BROUTER_PROFILES}/lookups.dat ${BROUTER_PROFILES}/all.brf segments rd5
 
-#cd ..
-#rm -rf segments
-#mv tmp/segments segments
-#mv /osm_edit/segments4 /osm_edit/segments4_lastrun
-#mv segments /osm_edit/segments4
-#rm -rf tmp
+rm -rf /osm_edit/segments4_lastrun
+cp -R /osm_edit/segments4 /osm_edit/segments4_lastrun
+mv /osm_edit/tmp/segments/ /osm_edit/segments4/
+rm -rf /osm_edit/tmp

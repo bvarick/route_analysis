@@ -39,8 +39,9 @@ This allows you to make changes to the street network (add a bike path, reduce a
 This is a multi-step process:
 1. Make edits to OpenStreetMap in [JOSM](https://josm.openstreetmap.de/)
 2. Save the edited map as `map_edited.osm` in `docker/brouter/osm_edit/` (File -> Save As)
-3. `make osm_edit_refresh_base` will download a fresh copy of `wisconsin-latest.osm.pbf` and the srtm tiles for Wisconsin. You don't need to run this frequently.
-3. `make osm_edit_generate_pbf` will take those edits and apply them to the `wisconsin-latest.osm.pbf` and generate `wisconsin-latest_edited.osm.pbf`
+3. `make osm_edit_refresh_base` will download a fresh copy of `wisconsin-latest.osm.pbf` and the elevation tiles for Wisconsin. You don't need to run this frequently.
+4. `make osm_edit_generate_pbf` will take those edits and apply them to the `wisconsin-latest.osm.pbf` and generate `wisconsin-latest_edited.osm.pbf`
+5. `make osm_edit_generate_brouter` will generate new brouter segment files from the edited pbf file.
 
 ## Misc.
 - [Bike Level of Traffic Stress (LTS)](https://www.dvrpc.org/webmaps/bike-lts/analysis/)

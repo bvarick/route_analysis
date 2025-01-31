@@ -56,3 +56,5 @@ osm_edit_generate_pbf:
 	cd ./docker/brouter/; docker run -v ./osm_edit:/osm_edit ghcr.io/bvarick/osmium-tool:2.21.0 osmium apply-changes /osm_edit/pbf_files/wisconsin-latest.osm.pbf /osm_edit/map_edited.osm -o /osm_edit/pbf_files/wisconsin-latest_edited.osm.pbf --overwrite
 
 osm_edit_generate_brouter:
+	docker run --rm -v ./docker/brouter/osm_edit:/osm_edit brouter /osm_edit/process_pbf.sh
+
