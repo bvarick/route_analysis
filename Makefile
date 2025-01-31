@@ -49,10 +49,10 @@ osm_edit_import_pbf:
 	cd ./docker/osm_edit/; rm ./osm-data/wisconsin-latest.osm; docker run -v ./osm-data:/osm-data ghcr.io/bvarick/osmosis:0.49.2 osmosis --read-pbf "/osm-data/wisconsin-latest.osm.pbf" --write-xml file="/osm-data/wisconsin-latest.osm"
 
 osm_edit_refresh_base:
-	cd ./data/osm; wget https://download.geofabrik.de/north-america/us/wisconsin-latest.osm.pbf -O ./wisconsin-latest.osm.pbf
-	cd ./data/osm/osm_edit/srtm/; wget -i srtm_tiles.csv -P ./
+	cd ./docker/brouter/osm_edit; wget https://download.geofabrik.de/north-america/us/wisconsin-latest.osm.pbf -O ./pbf_files/wisconsin-latest.osm.pbf
+	cd ./docker/brouter/osm_edit/srtm/; wget -i srtm_tiles.csv -P ./
 
 osm_edit_generate_pbf:
-	docker run -v ./data/osm:/osm ghcr.io/bvarick/osmium-tool:2.21.0 osmium apply-changes /osm/wisconsin-latest.osm.pbf /osm/osm_edit/map_edited.osm -o /osm/osm_edit/wisconsin-latest_edited.osm.pbf --overwrite
+	cd ./docker/brouter/; docker run -v ./osm_edit:/osm_edit ghcr.io/bvarick/osmium-tool:2.21.0 osmium apply-changes /osm_edit/pbf_files/wisconsin-latest.osm.pbf /osm_edit/map_edited.osm -o /osm_edit/pbf_files/wisconsin-latest_edited.osm.pbf --overwrite
 
 osm_edit_generate_brouter:

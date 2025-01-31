@@ -1,0 +1,13 @@
+# Ignore everything in this directory
+*
+# Except this file
+!.gitignore
+
+# Except osm_edit configuration files
+!process_pbf.sh
+!srtm/srtm_tiles.csv
+
+# Except osm_edit directories
+!brouter_segments/
+!pbf_files/
+!srtm/
