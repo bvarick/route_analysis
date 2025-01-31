@@ -44,10 +44,6 @@ brouter-data:
 	cd ./docker/brouter/brouter-web; cp config.template.js config.js
 	cd ./docker/brouter; docker compose build
 
-osm_edit_import_pbf:
-	cd ./docker/osm_edit/; wget https://download.geofabrik.de/north-america/us/wisconsin-latest.osm.pbf -O ./osm-data/wisconsin-latest.osm.pbf
-	cd ./docker/osm_edit/; rm ./osm-data/wisconsin-latest.osm; docker run -v ./osm-data:/osm-data ghcr.io/bvarick/osmosis:0.49.2 osmosis --read-pbf "/osm-data/wisconsin-latest.osm.pbf" --write-xml file="/osm-data/wisconsin-latest.osm"
-
 osm_edit_refresh_base:
 	cd ./docker/brouter/osm_edit; wget https://download.geofabrik.de/north-america/us/wisconsin-latest.osm.pbf -O ./pbf_files/wisconsin-latest.osm.pbf
 	cd ./docker/brouter/osm_edit/srtm3/; wget -i srtm_tiles.csv -P ./
@@ -57,4 +53,7 @@ osm_edit_generate_pbf:
 
 osm_edit_generate_brouter:
 	docker run --rm --user "$(id -u):$(id -g)" --env PLANET=wisconsin-latest_edited.osm.pbf --env JAVA_OPTS="-Xmx2048M -Xms2048M -Xmn256M" --env PLANET_UPDATE=0 --volume ./docker/brouter/osm_edit/brouter-tmp:/brouter-tmp --volume ./docker/brouter/osm_edit/pbf_files:/planet --volume ./docker/brouter/osm_edit/srtm3:/srtm3:ro --volume ./docker/brouter/osm_edit/segments:/segments ghcr.io/mjaschen/brouter-routingdata-builder
+
+osm_edit_brouter_containers:
+	cd ./docker/brouter/osm_edit; docker compose up -d
 

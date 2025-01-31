@@ -36,12 +36,16 @@ calculates the walking routes using OSRM.
 
 ## What-if analysis
 This allows you to make changes to the street network (add a bike path, reduce a lane on an arterial st) and see how it affects the routes that brouter chooses.
+
+This is currently not working, I'm trying to figure it out.
+
 This is a multi-step process:
 1. Make edits to OpenStreetMap in [JOSM](https://josm.openstreetmap.de/)
-2. Save the edited map as `docker/brouter/osm_edit/map_edited.osm` (File -> Save As)
+2. Save the edited map as `docker/brouter/osm_edit/map_edited.osm` (File -> Save As). Don't upload your hypothetical infrastructure to OpenStreetMap!
 3. `make osm_edit_refresh_base` will download a fresh copy of `wisconsin-latest.osm.pbf` and the elevation tiles for Wisconsin. You don't need to run this frequently.
 4. `make osm_edit_generate_pbf` will take those edits and apply them to the `wisconsin-latest.osm.pbf` and generate `wisconsin-latest_edited.osm.pbf`
 5. `make osm_edit_generate_brouter` will generate new brouter segment files from the edited pbf file.
+6. `make osm_edit_brouter_containers` starts the brouter backend and frontend using your newly created segment files with the edits you made. You can access the webui at http://127.0.0.1:8080
 
 ## Misc.
 - [Bike Level of Traffic Stress (LTS)](https://www.dvrpc.org/webmaps/bike-lts/analysis/)
