@@ -11,3 +11,4 @@
 
 # Except osm_edit
 !osm_edit/
+!mapcreation/*
