@@ -8,3 +8,5 @@
 !srtm3/
 !brouter-tmp/
 !segments/
+
+!docker-compose.yml
