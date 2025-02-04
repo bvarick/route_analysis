@@ -9,5 +9,6 @@
 # Except docker-compose.yml
 !docker-compose.yml
 
-# Except safety profiles
-!safety.brf
+# Except osm_edit
+!osm_edit/
+!mapcreation/*

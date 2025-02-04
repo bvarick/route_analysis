@@ -34,6 +34,17 @@ calculates the walking routes using OSRM.
 - `make cycle-osrm` will run *cycling_route_analysis.Rmd* which calculates the biking routes using OSRM.
 - `make cycle-brouter` will run *cycling_route_analysis_brouter.Rmd* which calculates the biking routes using brouter.
 
+## What-if analysis
+This allows you to make changes to the street network (add a bike path, reduce a lane on an arterial street) and see how it affects the routes that brouter chooses.
+
+This is a multi-step process:
+1. Generate an OsmChange file for the changes that you want to analyze. Don't upload your hypothetical infrastructure to OpenStreetMap!
+2. Save that file as `docker/brouter/osm_edit/changes.osc`.
+3. `make osm_edit_refresh_base` will download a fresh copy of `wisconsin-latest.osm.pbf` and the elevation tiles for Wisconsin. You don't need to run this frequently.
+4. `make osm_edit_generate_pbf` will take those edits and apply them to the `wisconsin-latest.osm.pbf` and generate `wisconsin-latest_edited.osm.pbf`
+5. `make osm_edit_generate_brouter` will generate new brouter segment files from the edited pbf file.
+6. `make osm_edit_brouter_containers` starts the brouter backend and frontend using your newly created segment files with the edits you made. You can access the webui at http://127.0.0.1:8080
+
 ## Misc.
 - [Bike Level of Traffic Stress (LTS)](https://www.dvrpc.org/webmaps/bike-lts/analysis/)
 
